@@ -1,9 +1,11 @@
+import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env["SUPABASE_URL"]!;
+const supabaseServiceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"]!;
 
 if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("[Supabase] ENV vars available:", Object.keys(process.env).filter(k => k.includes("SUPA")).join(", ") || "NONE");
   throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
 }
 
