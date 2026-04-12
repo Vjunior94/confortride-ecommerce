@@ -19,8 +19,8 @@ function formatPrice(price: string | number) {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendente", confirmed: "Confirmado", processing: "Em Processamento",
-  shipped: "Enviado", delivered: "Entregue", cancelled: "Cancelado",
+  awaiting_payment: "Aguardando Pagamento", pending: "Pendente", confirmed: "Confirmado", processing: "Em Processamento",
+  shipped: "Enviado", delivered: "Entregue", cancelled: "Cancelado", payment_failed: "Pagamento Recusado",
 };
 
 type AdminTab = "dashboard" | "products" | "orders" | "categories" | "users";

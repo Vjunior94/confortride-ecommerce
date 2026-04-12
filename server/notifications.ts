@@ -67,11 +67,13 @@ export async function notifyOrderStatusChange(
   customerName: string
 ) {
   const statusLabels: Record<string, string> = {
-    confirmed: "Confirmado",
+    awaiting_payment: "Aguardando Pagamento",
+    confirmed: "Pagamento Confirmado",
     processing: "Em Processamento",
     shipped: "Enviado",
     delivered: "Entregue",
     cancelled: "Cancelado",
+    payment_failed: "Pagamento Recusado",
   };
 
   const label = statusLabels[status] || status;

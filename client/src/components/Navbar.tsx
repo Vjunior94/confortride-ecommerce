@@ -10,6 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import CartDrawer from "@/components/CartDrawer";
 
 const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663082404663/FjqZaJ9bgun3ZHiVXwXgxT/LogoConfortRide_fb4b6e27.png";
 
@@ -24,7 +25,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
-  const { itemCount } = useCart();
+  const { itemCount, setDrawerOpen } = useCart();
   const utils = trpc.useUtils();
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -58,16 +59,15 @@ export default function Navbar() {
           {/* Right actions */}
           <div className="flex items-center gap-2">
             {/* Cart */}
-            <Link href="/carrinho">
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                    {itemCount > 9 ? "9+" : itemCount}
-                  </span>
-                )}
-              </Button>
-            </Link>
+            <Button variant="ghost" size="icon" className="relative" onClick={() => setDrawerOpen(true)}>
+              <ShoppingCart className="h-5 w-5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                  {itemCount > 9 ? "9+" : itemCount}
+                </span>
+              )}
+            </Button>
+            <CartDrawer />
 
             {/* Auth */}
             {isAuthenticated ? (

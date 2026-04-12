@@ -15,6 +15,7 @@ import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
 import MyAccount from "./pages/MyAccount";
 import Login from "./pages/Login";
+import PaymentResult from "./pages/PaymentResult";
 import { useEffect } from "react";
 import { supabase } from "./lib/supabase";
 import { trpc } from "./lib/trpc";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/produtos" component={Products} />
       <Route path="/produto/:slug" component={ProductDetail} />
       <Route path="/carrinho" component={Cart} />
+      <Route path="/pagamento/:status" component={PaymentResult} />
       <Route path="/minha-conta" component={MyAccount} />
       <Route path="/minha-conta/pedidos" component={MyAccount} />
       <Route path="/login" component={Login} />

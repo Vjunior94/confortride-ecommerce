@@ -7,10 +7,12 @@ import {
   getProducts, getProductBySlug, getProductById, createProduct, updateProduct, softDeleteProduct,
   getAddressesByUserId, createAddress, deleteAddress,
   createOrder, getOrdersByUserId, getOrderById, getOrderItems, getAllOrders, updateOrderStatus, getOrderStats,
+  updateOrderPayment,
   savePushSubscription, getPushSubscriptionsByUserId, deletePushSubscription, getAllProfiles, updateProfileRole,
 } from "./db";
 import { supabaseAdmin } from "./supabase";
 import { notifyNewOrder, notifyOrderStatusChange } from "./notifications";
+import { createCardPayment, createPixPayment, createBoletoPayment } from "./mercadopago";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso restrito a administradores." });
@@ -172,6 +174,152 @@ export const appRouter = router({
         await notifyNewOrder(order.id, ctx.user.name ?? "Cliente", subtotal.toFixed(2));
         return { success: true, orderId: order.id };
       }),
+
+    // ── Transparent Checkout: Card Payment ──
+    payWithCard: protectedProcedure
+      .input(z.object({
+        orderId: z.number(),
+        token: z.string(),
+        installments: z.number().min(1).default(1),
+        paymentMethodId: z.string(),
+        issuerId: z.string().optional(),
+        payerEmail: z.string().email(),
+        payerCpf: z.string(),
+        payerName: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const order = await getOrderById(input.orderId);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND" });
+        if (order.user_id !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        if (order.status !== "awaiting_payment" && order.status !== "payment_failed") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este pedido não pode ser pago." });
+        }
+
+        const nameParts = input.payerName.trim().split(" ");
+        const firstName = nameParts[0] || "Cliente";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        const result = await createCardPayment({
+          orderId: input.orderId,
+          amount: parseFloat(order.total),
+          token: input.token,
+          installments: input.installments,
+          paymentMethodId: input.paymentMethodId,
+          issuerId: input.issuerId,
+          payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
+        });
+
+        const statusMap: Record<string, string> = { approved: "confirmed", in_process: "awaiting_payment", pending: "awaiting_payment", rejected: "payment_failed" };
+        const orderStatus = statusMap[result.status ?? ""] ?? "payment_failed";
+
+        await updateOrderPayment(input.orderId, {
+          payment_id: String(result.id),
+          payment_status: result.status ?? undefined,
+          payment_method: result.payment_method_id ?? undefined,
+          status: orderStatus,
+          payment_data: { installments: result.installments, card_last_four: result.card?.last_four_digits, status_detail: result.status_detail },
+        });
+
+        return { status: result.status ?? "rejected", statusDetail: result.status_detail ?? "", orderId: input.orderId };
+      }),
+
+    // ── Transparent Checkout: PIX Payment ──
+    payWithPix: protectedProcedure
+      .input(z.object({
+        orderId: z.number(),
+        payerEmail: z.string().email(),
+        payerCpf: z.string(),
+        payerName: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const order = await getOrderById(input.orderId);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND" });
+        if (order.user_id !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        if (order.status !== "awaiting_payment" && order.status !== "payment_failed") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este pedido não pode ser pago." });
+        }
+
+        const nameParts = input.payerName.trim().split(" ");
+        const firstName = nameParts[0] || "Cliente";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        const result = await createPixPayment({
+          orderId: input.orderId,
+          amount: parseFloat(order.total),
+          payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
+        });
+
+        const txData = result.point_of_interaction?.transaction_data;
+        await updateOrderPayment(input.orderId, {
+          payment_id: String(result.id),
+          payment_status: result.status ?? undefined,
+          payment_method: "pix",
+          status: "awaiting_payment",
+          payment_data: {
+            qr_code: txData?.qr_code,
+            qr_code_base64: txData?.qr_code_base64,
+            ticket_url: txData?.ticket_url,
+          },
+        });
+
+        return {
+          orderId: input.orderId,
+          qrCode: txData?.qr_code ?? "",
+          qrCodeBase64: txData?.qr_code_base64 ?? "",
+          ticketUrl: txData?.ticket_url ?? "",
+        };
+      }),
+
+    // ── Transparent Checkout: Boleto Payment ──
+    payWithBoleto: protectedProcedure
+      .input(z.object({
+        orderId: z.number(),
+        payerEmail: z.string().email(),
+        payerCpf: z.string(),
+        payerName: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const order = await getOrderById(input.orderId);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND" });
+        if (order.user_id !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+        if (order.status !== "awaiting_payment" && order.status !== "payment_failed") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este pedido não pode ser pago." });
+        }
+
+        const nameParts = input.payerName.trim().split(" ");
+        const firstName = nameParts[0] || "Cliente";
+        const lastName = nameParts.slice(1).join(" ") || "";
+
+        const addr = order.address_snapshot as { zip_code?: string; street?: string; number?: string; neighborhood?: string; city?: string; state?: string } | null;
+
+        const result = await createBoletoPayment({
+          orderId: input.orderId,
+          amount: parseFloat(order.total),
+          payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
+          address: {
+            zip_code: addr?.zip_code ?? "",
+            street_name: addr?.street ?? "",
+            street_number: addr?.number ?? "",
+            neighborhood: addr?.neighborhood ?? "",
+            city: addr?.city ?? "",
+            federal_unit: addr?.state ?? "",
+          },
+        });
+
+        const boletoUrl = result.transaction_details?.external_resource_url ?? "";
+        const barcode = (result as any).barcode?.content ?? "";
+
+        await updateOrderPayment(input.orderId, {
+          payment_id: String(result.id),
+          payment_status: result.status ?? undefined,
+          payment_method: "bolbradesco",
+          status: "awaiting_payment",
+          payment_data: { boleto_url: boletoUrl, barcode },
+        });
+
+        return { orderId: input.orderId, boletoUrl, barcode };
+      }),
+
     myOrders: protectedProcedure.query(({ ctx }) => getOrdersByUserId(ctx.user.id)),
     detail: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
       const order = await getOrderById(input.id);
@@ -183,7 +331,7 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().optional(), offset: z.number().optional(), status: z.string().optional() }).optional())
       .query(({ input }) => getAllOrders(input ?? {})),
     updateStatus: adminProcedure
-      .input(z.object({ id: z.number(), status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]), trackingCode: z.string().optional() }))
+      .input(z.object({ id: z.number(), status: z.enum(["awaiting_payment", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "payment_failed"]), trackingCode: z.string().optional() }))
       .mutation(async ({ input }) => {
         const order = await getOrderById(input.id);
         if (!order) throw new TRPCError({ code: "NOT_FOUND" });

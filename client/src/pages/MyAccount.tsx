@@ -13,12 +13,14 @@ function formatPrice(price: string | number) {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  awaiting_payment: { label: "Aguardando Pagamento", color: "bg-orange-100 text-orange-700" },
   pending: { label: "Pendente", color: "bg-yellow-100 text-yellow-700" },
   confirmed: { label: "Confirmado", color: "bg-blue-100 text-blue-700" },
   processing: { label: "Em Processamento", color: "bg-purple-100 text-purple-700" },
   shipped: { label: "Enviado", color: "bg-indigo-100 text-indigo-700" },
   delivered: { label: "Entregue", color: "bg-green-100 text-green-700" },
   cancelled: { label: "Cancelado", color: "bg-red-100 text-red-700" },
+  payment_failed: { label: "Pagamento Recusado", color: "bg-red-100 text-red-700" },
 };
 
 export default function MyAccount() {

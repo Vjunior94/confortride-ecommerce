@@ -5,7 +5,6 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/contexts/CartContext";
-import { toast } from "sonner";
 import { Link } from "wouter";
 
 function formatPrice(price: string | number) {
@@ -33,11 +32,11 @@ export default function Products() {
   const products = productsData?.products ?? [];
   const productsTotal = productsData?.total ?? 0;
   const { data: categories } = trpc.categories.list.useQuery();
-  const { addItem } = useCart();
+  const { addItem, setDrawerOpen } = useCart();
 
   const handleAddToCart = (product: any) => {
     addItem({ productId: product.id, name: product.name, price: parseFloat(product.price), imageUrl: product.imageUrl, stock: product.stock });
-    toast.success(`${product.name} adicionado ao carrinho!`);
+    setDrawerOpen(true);
   };
 
   return (

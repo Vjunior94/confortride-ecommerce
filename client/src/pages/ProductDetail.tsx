@@ -4,7 +4,6 @@ import { ShoppingCart, ArrowLeft, Package, Minus, Plus, CheckCircle } from "luci
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
-import { toast } from "sonner";
 
 function formatPrice(price: string | number) {
   return Number(price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -14,7 +13,7 @@ export default function ProductDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [quantity, setQuantity] = useState(1);
   const { data: product, isLoading } = trpc.products.bySlug.useQuery({ slug: slug! });
-  const { addItem, items } = useCart();
+  const { addItem, items, setDrawerOpen } = useCart();
 
   const cartItem = items.find((i) => i.productId === product?.id);
   const cartQty = cartItem?.quantity ?? 0;
@@ -24,7 +23,7 @@ export default function ProductDetail() {
     for (let i = 0; i < quantity; i++) {
       addItem({ productId: product.id, name: product.name, price: parseFloat(product.price), imageUrl: product.imageUrl, stock: product.stock });
     }
-    toast.success(`${quantity}x ${product.name} adicionado ao carrinho!`);
+    setDrawerOpen(true);
   };
 
   if (isLoading) {

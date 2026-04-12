@@ -142,7 +142,7 @@ export async function deleteAddress(id: number, userId: string) {
 // ============================================================
 export async function createOrder(input: { user_id: string; total: number; subtotal: number; shipping_cost: number; discount: number; address_snapshot: object; notes?: string; items: Array<{ product_id?: number; product_name: string; product_image?: string; quantity: number; unit_price: number; total_price: number }> }) {
   const { items, ...orderData } = input;
-  const { data: order, error: orderError } = await supabaseAdmin.from("orders").insert({ ...orderData, status: "pending" }).select().single();
+  const { data: order, error: orderError } = await supabaseAdmin.from("orders").insert({ ...orderData, status: "awaiting_payment" }).select().single();
   if (orderError) throw orderError;
   const { error: itemsError } = await supabaseAdmin.from("order_items").insert(items.map(i => ({ ...i, order_id: order.id })));
   if (itemsError) throw itemsError;
@@ -188,13 +188,20 @@ export async function updateOrderStatus(id: number, status: string, trackingCode
 export async function getOrderStats() {
   const { data: allOrders, error } = await supabaseAdmin.from("orders").select("status, total");
   if (error) throw error;
-  const stats = { total: 0, pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0, revenue: 0 };
+  const stats = { total: 0, awaiting_payment: 0, pending: 0, confirmed: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0, payment_failed: 0, revenue: 0 };
   for (const o of allOrders ?? []) {
     stats.total++;
     if (o.status in stats) (stats as Record<string, number>)[o.status]++;
     if (o.status !== "cancelled") stats.revenue += Number(o.total);
   }
   return stats;
+}
+
+export async function updateOrderPayment(orderId: number, paymentData: { payment_id?: string; payment_status?: string; payment_method?: string; mp_preference_id?: string; status?: string; payment_data?: object }) {
+  const update: Record<string, unknown> = { ...paymentData, updated_at: new Date().toISOString() };
+  const { data, error } = await supabaseAdmin.from("orders").update(update).eq("id", orderId).select().single();
+  if (error) throw error;
+  return data;
 }
 
 // ============================================================
