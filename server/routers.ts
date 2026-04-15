@@ -10,9 +10,11 @@ import {
   updateOrderPayment,
   savePushSubscription, getPushSubscriptionsByUserId, deletePushSubscription, getAllProfiles, updateProfileRole,
 } from "./db";
-import { supabaseAdmin } from "./supabase";
+import { supabaseAdmin, supabaseAuth } from "./supabase";
 import { notifyNewOrder, notifyOrderStatusChange } from "./notifications";
 import { createCardPayment, createPixPayment, createBoletoPayment } from "./mercadopago";
+import { sendOrderConfirmation, sendPaymentConfirmed } from "./email";
+import { sendOrderConfirmationWhatsApp, sendPaymentConfirmedWhatsApp } from "./whatsapp";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso restrito a administradores." });
@@ -32,15 +34,16 @@ export const appRouter = router({
     // Supabase auth is handled client-side; logout is also client-side
     logout: publicProcedure.mutation(() => ({ success: true })),
 
-    // Sign up with email/password via Supabase Admin API (server-side)
+    // Sign up with email/password — sends confirmation email via Supabase Auth
     signUp: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string().min(6), name: z.string().min(2) }))
       .mutation(async ({ input }) => {
-        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        const { data, error } = await supabaseAuth.auth.signUp({
           email: input.email,
           password: input.password,
-          email_confirm: true,
-          user_metadata: { name: input.name, role: "user" },
+          options: {
+            data: { name: input.name, role: "user" },
+          },
         });
         if (error) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
         return { success: true, userId: data.user?.id };
@@ -171,7 +174,28 @@ export const appRouter = router({
           user_id: ctx.user.id, subtotal, shipping_cost: 0, discount: 0, total: subtotal,
           address_snapshot: input.shippingAddress, notes: input.notes, items: orderItemsData,
         });
-        await notifyNewOrder(order.id, ctx.user.name ?? "Cliente", subtotal.toFixed(2));
+        notifyNewOrder(order.id, ctx.user.name ?? "Cliente", subtotal.toFixed(2)).catch((err) =>
+          console.warn("[Order] Notification failed (non-blocking):", err.message),
+        );
+        // Send order confirmation email (non-blocking)
+        const addr = input.shippingAddress as Record<string, string>;
+        sendOrderConfirmation({
+          orderId: order.id,
+          customerName: ctx.user.name ?? "Cliente",
+          customerEmail: ctx.user.email ?? "",
+          items: orderItemsData.map(i => ({ name: i.product_name, quantity: i.quantity, unitPrice: i.unit_price, totalPrice: i.total_price })),
+          total: subtotal,
+          address: addr,
+        }).catch(err => console.warn("[Order] Email failed (non-blocking):", err?.message));
+        // Send WhatsApp notification (non-blocking)
+        if (ctx.user.phone) {
+          sendOrderConfirmationWhatsApp({
+            phone: ctx.user.phone,
+            customerName: ctx.user.name ?? "Cliente",
+            orderId: order.id,
+            total: subtotal,
+          }).catch(err => console.warn("[Order] WhatsApp failed (non-blocking):", err?.message));
+        }
         return { success: true, orderId: order.id };
       }),
 
@@ -243,11 +267,18 @@ export const appRouter = router({
         const firstName = nameParts[0] || "Cliente";
         const lastName = nameParts.slice(1).join(" ") || "";
 
-        const result = await createPixPayment({
-          orderId: input.orderId,
-          amount: parseFloat(order.total),
-          payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
-        });
+        let result: any;
+        try {
+          result = await createPixPayment({
+            orderId: input.orderId,
+            amount: parseFloat(order.total),
+            payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
+          });
+        } catch (err: any) {
+          console.error("[PIX] Mercado Pago full error:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+          const msg = err?.cause?.[0]?.message || err?.message || "Erro ao gerar PIX.";
+          throw new TRPCError({ code: "BAD_REQUEST", message: msg });
+        }
 
         const txData = result.point_of_interaction?.transaction_data;
         await updateOrderPayment(input.orderId, {
@@ -292,19 +323,26 @@ export const appRouter = router({
 
         const addr = order.address_snapshot as { zip_code?: string; street?: string; number?: string; neighborhood?: string; city?: string; state?: string } | null;
 
-        const result = await createBoletoPayment({
-          orderId: input.orderId,
-          amount: parseFloat(order.total),
-          payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
-          address: {
-            zip_code: addr?.zip_code ?? "",
-            street_name: addr?.street ?? "",
-            street_number: addr?.number ?? "",
-            neighborhood: addr?.neighborhood ?? "",
-            city: addr?.city ?? "",
-            federal_unit: addr?.state ?? "",
-          },
-        });
+        let result: any;
+        try {
+          result = await createBoletoPayment({
+            orderId: input.orderId,
+            amount: parseFloat(order.total),
+            payer: { email: input.payerEmail, first_name: firstName, last_name: lastName, cpf: input.payerCpf },
+            address: {
+              zip_code: addr?.zip_code?.replace(/\D/g, "") ?? "",
+              street_name: addr?.street ?? "",
+              street_number: addr?.number ?? "",
+              neighborhood: addr?.neighborhood ?? "",
+              city: addr?.city ?? "",
+              federal_unit: addr?.state ?? "",
+            },
+          });
+        } catch (err: any) {
+          console.error("[Boleto] Mercado Pago full error:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+          const msg = err?.cause?.[0]?.message || err?.message || "Erro ao gerar boleto.";
+          throw new TRPCError({ code: "BAD_REQUEST", message: msg });
+        }
 
         const boletoUrl = result.transaction_details?.external_resource_url ?? "";
         const barcode = (result as any).barcode?.content ?? "";

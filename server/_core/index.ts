@@ -11,6 +11,8 @@ import { serveStatic, setupVite } from "./vite";
 import { getPaymentById } from "../mercadopago";
 import { getOrderById, updateOrderPayment } from "../db";
 import { notifyOrderStatusChange } from "../notifications";
+import { sendPaymentConfirmed } from "../email";
+import { sendPaymentConfirmedWhatsApp } from "../whatsapp";
 
 const WEBHOOK_SECRET = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
 
@@ -166,6 +168,29 @@ async function startServer() {
         // Notify customer of status change
         if (orderStatus !== order.status) {
           await notifyOrderStatusChange(order.user_id, orderId, orderStatus, order.profiles?.name ?? "Cliente");
+        }
+
+        // Send payment confirmed email
+        if (payment.status === "approved" && order.order_items) {
+          const addr = (order.address_snapshot ?? {}) as Record<string, string>;
+          sendPaymentConfirmed({
+            orderId,
+            customerName: order.profiles?.name ?? "Cliente",
+            customerEmail: order.profiles?.email ?? "",
+            items: order.order_items.map((i: any) => ({ name: i.product_name, quantity: i.quantity, unitPrice: i.unit_price, totalPrice: i.total_price })),
+            total: parseFloat(order.total),
+            address: addr,
+          }).catch(err => console.warn("[Webhook] Payment email failed:", err?.message));
+          // Send WhatsApp notification
+          const profile = order.profiles as any;
+          if (profile?.phone) {
+            sendPaymentConfirmedWhatsApp({
+              phone: profile.phone,
+              customerName: profile.name ?? "Cliente",
+              orderId,
+              total: parseFloat(order.total),
+            }).catch(err => console.warn("[Webhook] Payment WhatsApp failed:", err?.message));
+          }
         }
 
         console.log(`[MercadoPago Webhook] Order #${orderId} → ${orderStatus} (payment: ${payment.status})`);

@@ -32,4 +32,12 @@ export function createUserClient(accessToken: string) {
   });
 }
 
+// Non-admin client for operations that need Supabase Auth emails (confirmation, etc.)
+export const supabaseAuth = createClient(supabaseUrl, process.env.SUPABASE_ANON_KEY!, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
+
 export type SupabaseAdminClient = typeof supabaseAdmin;

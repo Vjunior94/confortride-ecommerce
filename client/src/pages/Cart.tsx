@@ -40,6 +40,33 @@ export default function Cart() {
     recipient_name: user?.name ?? "",
     zip_code: "", street: "", number: "", complement: "", neighborhood: "", city: "", state: "",
   });
+  const [cepLoading, setCepLoading] = useState(false);
+
+  // Busca automática de endereço via ViaCEP
+  const fetchAddressByCep = useCallback(async (cep: string) => {
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        setAddress((a) => ({
+          ...a,
+          street: data.logradouro || a.street,
+          neighborhood: data.bairro || a.neighborhood,
+          city: data.localidade || a.city,
+          state: data.uf || a.state,
+        }));
+      } else {
+        toast.error("CEP não encontrado.");
+      }
+    } catch {
+      toast.error("Erro ao buscar CEP.");
+    } finally {
+      setCepLoading(false);
+    }
+  }, []);
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
@@ -303,17 +330,35 @@ export default function Cart() {
                   <Label>Nome do destinatário *</Label>
                   <Input value={address.recipient_name} onChange={(e) => setAddress((a) => ({ ...a, recipient_name: e.target.value }))} placeholder="Nome completo" className="mt-1" />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-2 sm:col-span-1">
                   <Label>CEP *</Label>
-                  <Input value={address.zip_code} onChange={(e) => setAddress((a) => ({ ...a, zip_code: e.target.value }))} placeholder="00000-000" className="mt-1" />
+                  <div className="relative">
+                    <Input
+                      value={address.zip_code}
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "").slice(0, 8);
+                        if (v.length > 5) v = v.slice(0, 5) + "-" + v.slice(5);
+                        setAddress((a) => ({ ...a, zip_code: v }));
+                        if (v.replace(/\D/g, "").length === 8) fetchAddressByCep(v);
+                      }}
+                      placeholder="00000-000"
+                      className="mt-1"
+                      maxLength={9}
+                    />
+                    {cepLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 mt-0.5">
+                        <div className="h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <Label>Rua/Avenida *</Label>
-                  <Input value={address.street} onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))} placeholder="Nome da rua" className="mt-1" />
+                  <Input value={address.street} onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))} placeholder="Nome da rua" className="mt-1 bg-gray-50 read-only:bg-gray-50" readOnly={!!address.street && !cepLoading} />
                 </div>
                 <div>
                   <Label>Número *</Label>
-                  <Input value={address.number} onChange={(e) => setAddress((a) => ({ ...a, number: e.target.value }))} placeholder="123" className="mt-1" />
+                  <Input value={address.number} onChange={(e) => setAddress((a) => ({ ...a, number: e.target.value }))} placeholder="123" className="mt-1" autoFocus={!!address.street} />
                 </div>
                 <div>
                   <Label>Complemento</Label>
@@ -321,15 +366,15 @@ export default function Cart() {
                 </div>
                 <div>
                   <Label>Bairro *</Label>
-                  <Input value={address.neighborhood} onChange={(e) => setAddress((a) => ({ ...a, neighborhood: e.target.value }))} placeholder="Bairro" className="mt-1" />
+                  <Input value={address.neighborhood} onChange={(e) => setAddress((a) => ({ ...a, neighborhood: e.target.value }))} placeholder="Bairro" className="mt-1 bg-gray-50 read-only:bg-gray-50" readOnly={!!address.neighborhood && !cepLoading} />
                 </div>
                 <div>
                   <Label>Cidade *</Label>
-                  <Input value={address.city} onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))} placeholder="Cidade" className="mt-1" />
+                  <Input value={address.city} onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))} placeholder="Cidade" className="mt-1 bg-gray-50 read-only:bg-gray-50" readOnly={!!address.city && !cepLoading} />
                 </div>
                 <div>
                   <Label>Estado *</Label>
-                  <Input value={address.state} onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="SP" maxLength={2} className="mt-1" />
+                  <Input value={address.state} onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="SP" maxLength={2} className="mt-1 bg-gray-50 read-only:bg-gray-50" readOnly={!!address.state && !cepLoading} />
                 </div>
               </div>
               <div className="flex gap-3 pt-2">

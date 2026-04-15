@@ -111,12 +111,21 @@ export default function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button
-                size="sm"
-                className="hidden md:flex bg-red-600 hover:bg-red-700 text-white"
-                          onClick={() => navigate("/login")}>
-                Entrar
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="hidden md:flex text-gray-700 hover:text-red-600"
+                  onClick={() => navigate("/login")}>
+                  Entrar
+                </Button>
+                <Button
+                  size="sm"
+                  className="hidden md:flex bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => navigate("/login?modo=cadastro")}>
+                  Cadastrar
+                </Button>
+              </>
             )}
 
             {/* Mobile menu toggle */}

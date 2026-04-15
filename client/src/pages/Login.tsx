@@ -14,7 +14,9 @@ type Mode = "login" | "signup" | "forgot";
 
 export default function Login() {
   const [, navigate] = useLocation();
-  const [mode, setMode] = useState<Mode>("login");
+  const searchStr = window.location.search;
+  const initialMode = new URLSearchParams(searchStr).get("modo") === "cadastro" ? "signup" : "login";
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -54,7 +56,7 @@ export default function Login() {
     setLoading(true);
     try {
       await signUpMutation.mutateAsync({ email, password, name });
-      toast.success("Conta criada! Faça login para continuar.");
+      toast.success("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
       setMode("login");
     } catch (err: any) {
       toast.error(err.message);

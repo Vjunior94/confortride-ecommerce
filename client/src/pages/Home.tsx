@@ -60,7 +60,7 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="relative h-screen min-h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[75vh] min-h-[450px] flex items-center justify-center overflow-hidden">
         {/* Slideshow background */}
         {prevSlide !== null && (
           <img
@@ -92,7 +92,7 @@ export default function Home() {
             CONFORTRIDE.<br /><span className="text-red-400">PARA HOMEM E MÁQUINA.</span>
           </h1>
           <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl mx-auto">
-            Acessórios premium para motociclistas que não abrem mão de conforto e estilo.
+            Produtos de qualidade e estilo, para expor suas maiores emoções.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/produtos">

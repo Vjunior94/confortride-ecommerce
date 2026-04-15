@@ -12,6 +12,7 @@ if (!accessToken) {
 const client = accessToken ? new MercadoPagoConfig({ accessToken }) : null;
 
 const APP_URL = process.env.VITE_APP_URL || "http://localhost:3000";
+const isProduction = !APP_URL.includes("localhost");
 
 function ensureClient() {
   if (!client) throw new Error("Mercado Pago não configurado. Verifique MERCADO_PAGO_ACCESS_TOKEN.");
@@ -50,7 +51,7 @@ export async function createCardPayment(params: {
         identification: { type: "CPF", number: params.payer.cpf },
       },
       external_reference: String(params.orderId),
-      notification_url: `${APP_URL}/api/webhooks/mercadopago`,
+      ...(isProduction && { notification_url: `${APP_URL}/api/webhooks/mercadopago` }),
       statement_descriptor: "CONFORTRIDE",
     },
   });
@@ -74,7 +75,7 @@ export async function createPixPayment(params: {
         identification: { type: "CPF", number: params.payer.cpf },
       },
       external_reference: String(params.orderId),
-      notification_url: `${APP_URL}/api/webhooks/mercadopago`,
+      ...(isProduction && { notification_url: `${APP_URL}/api/webhooks/mercadopago` }),
     },
   });
 }
@@ -106,7 +107,7 @@ export async function createBoletoPayment(params: {
         address: params.address,
       },
       external_reference: String(params.orderId),
-      notification_url: `${APP_URL}/api/webhooks/mercadopago`,
+      ...(isProduction && { notification_url: `${APP_URL}/api/webhooks/mercadopago` }),
     },
   });
 }
