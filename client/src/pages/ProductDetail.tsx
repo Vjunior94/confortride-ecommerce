@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { ShoppingCart, ArrowLeft, Package, Minus, Plus, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +12,8 @@ function formatPrice(price: string | number) {
 function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
   const [current, setCurrent] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const thumbsRef = useRef<HTMLDivElement>(null);
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const goTo = useCallback((index: number) => {
     if (isTransitioning) return;
@@ -29,6 +31,13 @@ function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
     return () => clearInterval(timer);
   }, [goNext, images.length]);
 
+  useEffect(() => {
+    const thumb = thumbRefs.current[current];
+    if (thumb && thumbsRef.current) {
+      thumb.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }, [current]);
+
   if (images.length === 1) {
     return (
       <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
@@ -38,7 +47,7 @@ function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative group">
+    <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative">
       {/* Slides */}
       <div className="aspect-square overflow-hidden relative">
         <div
@@ -51,27 +60,28 @@ function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
         </div>
       </div>
 
-      {/* Arrows */}
+      {/* Arrows - always visible */}
       <button
         onClick={goPrev}
-        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute left-2 top-[calc(50%-2rem)] -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-md transition-colors"
       >
         <ChevronLeft className="h-5 w-5 text-gray-700" />
       </button>
       <button
         onClick={goNext}
-        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute right-2 top-[calc(50%-2rem)] -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-md transition-colors"
       >
         <ChevronRight className="h-5 w-5 text-gray-700" />
       </button>
 
       {/* Thumbnails */}
-      <div className="flex justify-center gap-3 px-4 py-3 bg-gray-50/80">
+      <div ref={thumbsRef} className="flex gap-2 px-3 py-3 overflow-x-auto scrollbar-hide bg-gray-50/60">
         {images.map((src, i) => (
           <button
             key={i}
+            ref={(el) => { thumbRefs.current[i] = el; }}
             onClick={() => goTo(i)}
-            className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 transition-all duration-300 ${i === current ? "ring-2 ring-red-500 ring-offset-2 scale-105 shadow-sm" : "opacity-50 hover:opacity-80 grayscale hover:grayscale-0"}`}
+            className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 transition-all duration-300 border-2 ${i === current ? "border-red-500 shadow-sm scale-105" : "border-transparent opacity-60 hover:opacity-100"}`}
           >
             <img src={src} alt={`${alt} - ${i + 1}`} className="w-full h-full object-cover" />
           </button>
