@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import {
   Package, ShoppingBag, Users, TrendingUp, Plus, Pencil, Trash2, ChevronDown,
@@ -172,6 +172,34 @@ function DashboardTab() {
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────
+/**
+ * Parses a comma-separated model list, inheriting the prefix from the previous
+ * named model when an entry is just a number.
+ * E.g. "Ninja 250, 300, 400, Z900, Z500" → ["Ninja 250", "Ninja 300", "Ninja 400", "Z900", "Z500"]
+ */
+function parseModels(input: string): string[] {
+  const raw = input.split(",").map(s => s.trim()).filter(Boolean);
+  const result: string[] = [];
+  let lastPrefix = "";
+
+  for (const item of raw) {
+    // If the item is purely numeric (e.g. "300", "1000"), inherit the last prefix
+    if (/^\d+$/.test(item) && lastPrefix) {
+      result.push(`${lastPrefix} ${item}`);
+    } else {
+      result.push(item);
+      // Extract prefix: everything before the last space+number sequence
+      // "Ninja 250" → "Ninja", "Fazer 250" → "Fazer", "Z900" → stays as-is (no space)
+      const prefixMatch = item.match(/^(.+?)\s+\d+.*$/);
+      if (prefixMatch) {
+        lastPrefix = prefixMatch[1];
+      }
+      // If no space+number pattern (e.g. "Z900", "ZX-10R"), don't update prefix
+    }
+  }
+  return result;
+}
+
 function ProductsTab() {
   const utils = trpc.useUtils();
   const { data: productsData, isLoading } = trpc.products.listAdmin.useQuery();
@@ -242,7 +270,7 @@ function ProductsTab() {
     if (isNaN(price)) { toast.error("Preço inválido."); return; }
     if (originalPrice !== undefined && isNaN(originalPrice)) { toast.error("Preço original inválido."); return; }
     // Captura modelos pendentes no campo de texto
-    const pendingModels = modelInput.split(",").map(s => s.trim()).filter(Boolean);
+    const pendingModels = parseModels(modelInput);
     const allModels = [...form.compatibleModels, ...pendingModels];
     setModelInput("");
     const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price, original_price: originalPrice, image_url: form.images[0] || undefined, images: form.images, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: allModels };
@@ -413,7 +441,7 @@ function ProductsTab() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      const models = modelInput.split(",").map(s => s.trim()).filter(Boolean);
+                      const models = parseModels(modelInput);
                       if (models.length > 0) {
                         setForm(f => ({ ...f, compatibleModels: [...f.compatibleModels, ...models] }));
                         setModelInput("");
