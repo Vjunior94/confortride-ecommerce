@@ -31,20 +31,34 @@ function similarity(a: string, b: string): number {
   return score;
 }
 
-function CompatibilityChecker({ models }: { models: string[] }) {
+function isModelMatch(query: string, model: string): boolean {
+  const nq = normalize(query);
+  const nm = normalize(model);
+  return nm === nq || nm.includes(nq) || nq.includes(nm);
+}
+
+function CompatibilityChecker({ models, productId }: { models: string[]; productId: number }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<{ type: "compatible" | "suggestion" | "incompatible"; model?: string } | null>(null);
+  const { data: allProductsData } = trpc.products.list.useQuery();
+  const allProducts = allProductsData?.products ?? [];
+
+  const compatibleOthers = useMemo(() => {
+    if (result?.type !== "incompatible" || !query.trim()) return [];
+    const q = query.trim();
+    return allProducts.filter((p: any) => {
+      if (p.id === productId || !p.active) return false;
+      const pModels = (p.compatible_models as string[] | null) ?? [];
+      return pModels.some((m: string) => isModelMatch(q, m) || similarity(q, m) >= 0.4);
+    });
+  }, [result, query, allProducts, productId]);
 
   const handleCheck = () => {
     const q = query.trim();
     if (!q) return;
-    const nq = normalize(q);
 
     // Exact or contained match
-    const exact = models.find((m) => {
-      const nm = normalize(m);
-      return nm === nq || nm.includes(nq) || nq.includes(nm);
-    });
+    const exact = models.find((m) => isModelMatch(q, m));
     if (exact) {
       setResult({ type: "compatible", model: exact });
       return;
@@ -123,6 +137,32 @@ function CompatibilityChecker({ models }: { models: string[] }) {
               <span>Este produto não possui compatibilidade registrada com o modelo informado.</span>
             </>
           )}
+        </div>
+      )}
+
+      {/* Other compatible products */}
+      {result?.type === "incompatible" && compatibleOthers.length > 0 && (
+        <div className="mt-3 p-3 rounded-lg text-sm bg-blue-50 border border-blue-200 text-blue-800">
+          <p className="font-medium mb-2">Mas encontramos outros produtos compatíveis com sua moto:</p>
+          <div className="space-y-2">
+            {compatibleOthers.map((p: any) => (
+              <Link key={p.id} href={`/produto/${p.slug}`}>
+                <div className="flex items-center gap-3 bg-white rounded-lg p-2 hover:shadow-sm transition-shadow cursor-pointer border border-blue-100">
+                  <div className="w-10 h-10 rounded-md overflow-hidden shrink-0 bg-gray-100">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-sm">🏍️</div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 text-sm truncate">{p.name}</p>
+                    <p className="text-xs text-green-600 font-medium">{formatPrice(p.price)}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -327,7 +367,7 @@ export default function ProductDetail() {
             </div>
 
             {/* Compatibility Checker */}
-            <CompatibilityChecker models={(product.compatible_models as string[] | null) ?? []} />
+            <CompatibilityChecker models={(product.compatible_models as string[] | null) ?? []} productId={product.id} />
 
             {/* Description */}
             {product.description && (
