@@ -867,7 +867,7 @@ function UsersTab() {
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.role === "admin" ? "bg-red-100 text-red-700" : u.role === "staff" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>{u.role === "admin" ? "Admin" : u.role === "staff" ? "Operador" : "Cliente"}</span>
                   </td>
-                  <td className="px-4 py-3 hidden md:table-cell text-gray-400 text-xs">{new Date(u.createdAt).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3 hidden md:table-cell text-gray-400 text-xs">{new Date(u.created_at ?? u.createdAt).toLocaleDateString("pt-BR")}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     {u.id === user?.id ? (
                       <span className="text-xs text-gray-400">Você</span>
