@@ -460,6 +460,30 @@ export const appRouter = router({
       }),
     mySubscriptions: protectedProcedure.query(({ ctx }) => getPushSubscriptionsByUserId(ctx.user.id)),
   }),
+
+  // ── Upload ───────────────────────────────────────────────────────────────
+  upload: router({
+    image: adminProcedure
+      .input(z.object({
+        base64: z.string(),
+        fileName: z.string(),
+        contentType: z.string().default("image/webp"),
+      }))
+      .mutation(async ({ input }) => {
+        const buffer = Buffer.from(input.base64, "base64");
+        const ext = input.fileName.split(".").pop() || "webp";
+        const key = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+        const { error } = await supabaseAdmin.storage
+          .from("images")
+          .upload(key, buffer, { contentType: input.contentType, upsert: false });
+
+        if (error) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Upload falhou: ${error.message}` });
+
+        const { data: urlData } = supabaseAdmin.storage.from("images").getPublicUrl(key);
+        return { url: urlData.publicUrl };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

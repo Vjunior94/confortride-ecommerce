@@ -193,6 +193,29 @@ function ProductsTab() {
   const deleteMutation = trpc.products.delete.useMutation({
     onSuccess: () => { utils.products.listAdmin.invalidate(); toast.success("Produto removido!"); },
   });
+  const uploadMutation = trpc.upload.image.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
+  const [uploading, setUploading] = useState(false);
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Imagem muito grande (máx 5MB)."); return; }
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadMutation.mutateAsync({ base64, fileName: file.name, contentType: file.type });
+      setForm((f) => ({ ...f, imageUrl: result.url }));
+      toast.success("Imagem enviada!");
+    } catch { /* error handled by mutation */ }
+    setUploading(false);
+  }
 
   const resetForm = () => setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false });
 
@@ -310,8 +333,25 @@ function ProductsTab() {
               </div>
             </div>
             <div>
-              <Label>URL da Imagem</Label>
-              <Input value={form.imageUrl} onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))} placeholder="https://..." className="mt-1" />
+              <Label>Imagem do Produto</Label>
+              <div className="mt-1 space-y-2">
+                {form.imageUrl && (
+                  <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
+                    <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))} className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black/80">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <label className={`inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                    <Upload className="h-4 w-4 text-gray-500" />
+                    {uploading ? "Enviando..." : "Enviar imagem"}
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  </label>
+                </div>
+                <Input value={form.imageUrl} onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))} placeholder="Ou cole a URL da imagem..." className="text-xs" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -343,12 +383,27 @@ function ProductsTab() {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 function OrdersTab() {
   const utils = trpc.useUtils();
+  const PAGE_SIZE = 20;
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: ordersData, isLoading } = trpc.orders.adminList.useQuery({
-    limit: 50,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
   const orders = ordersData?.orders ?? [];
+  const totalOrders = ordersData?.total ?? 0;
+  const totalPages = Math.ceil(totalOrders / PAGE_SIZE);
+
+  const filteredOrders = searchQuery.trim()
+    ? orders.filter((o: any) => {
+        const q = searchQuery.trim().toLowerCase();
+        const idMatch = String(o.id).includes(q.replace("#", ""));
+        const nameMatch = o.profiles?.name?.toLowerCase().includes(q);
+        return idMatch || nameMatch;
+      })
+    : orders;
   const updateStatusMutation = trpc.orders.updateStatus.useMutation({
     onSuccess: () => { utils.orders.adminList.invalidate(); toast.success("Status atualizado!"); },
     onError: (e) => toast.error(e.message),
@@ -392,25 +447,36 @@ function OrdersTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
         <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>PEDIDOS</h2>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filtrar por status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([v, l]) => (
-              <SelectItem key={v} value={v}>{l}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Buscar #ID ou cliente..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+              className="pl-8 w-48 h-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
+            <SelectTrigger className="w-48 h-9">
+              <SelectValue placeholder="Filtrar por status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                <SelectItem key={v} value={v}>{l}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-400">Carregando...</div>
-        ) : orders.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">Nenhum pedido ainda.</div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">{searchQuery ? "Nenhum pedido encontrado." : "Nenhum pedido ainda."}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -425,7 +491,7 @@ function OrdersTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {orders.map((order: any) => (
+                {filteredOrders.map((order: any) => (
                   <tr key={order.id} className="hover:bg-gray-50/50">
                     <td className="px-4 py-3 font-medium text-gray-900">#{order.id}</td>
                     <td className="px-4 py-3 hidden md:table-cell text-gray-600">{order.profiles?.name ?? "—"}</td>
@@ -460,6 +526,22 @@ function OrdersTab() {
           </div>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalOrders)} de {totalOrders}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={page === 0}>
+              Anterior
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>
+              Próximo
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Order Detail Dialog */}
       <Dialog open={selectedOrderId !== null} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
