@@ -181,6 +181,7 @@ function ProductsTab() {
   const [showForm, setShowForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
   const [form, setForm] = useState({ categoryId: "", name: "", description: "", price: "", comparePrice: "", images: [] as string[], sku: "", stock: "0", featured: false, compatibleModels: [] as string[] });
+  const [modelInput, setModelInput] = useState("");
 
   const createMutation = trpc.products.create.useMutation({
     onSuccess: () => { utils.products.listAdmin.invalidate(); toast.success("Produto criado!"); setShowForm(false); resetForm(); },
@@ -223,7 +224,7 @@ function ProductsTab() {
     e.target.value = "";
   }
 
-  const resetForm = () => setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", images: [], sku: "", stock: "0", featured: false, compatibleModels: [] });
+  const resetForm = () => { setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", images: [], sku: "", stock: "0", featured: false, compatibleModels: [] }); setModelInput(""); };
 
   const openEdit = (p: any) => {
     setEditProduct(p);
@@ -240,7 +241,11 @@ function ProductsTab() {
     const originalPrice = form.comparePrice ? parsePrice(form.comparePrice) : undefined;
     if (isNaN(price)) { toast.error("Preço inválido."); return; }
     if (originalPrice !== undefined && isNaN(originalPrice)) { toast.error("Preço original inválido."); return; }
-    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price, original_price: originalPrice, image_url: form.images[0] || undefined, images: form.images, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: form.compatibleModels };
+    // Captura modelos pendentes no campo de texto
+    const pendingModels = modelInput.split(",").map(s => s.trim()).filter(Boolean);
+    const allModels = [...form.compatibleModels, ...pendingModels];
+    setModelInput("");
+    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price, original_price: originalPrice, image_url: form.images[0] || undefined, images: form.images, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: allModels };
     if (editProduct) updateMutation.mutate({ id: editProduct.id, ...data });
     else createMutation.mutate(data as any);
   };
@@ -402,15 +407,16 @@ function ProductsTab() {
                   </div>
                 )}
                 <Input
+                  value={modelInput}
+                  onChange={(e) => setModelInput(e.target.value)}
                   placeholder="Ex: Honda CB 500F, Yamaha MT-07, BMW R 1250 — Enter para adicionar"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      const raw = (e.target as HTMLInputElement).value;
-                      const models = raw.split(",").map(s => s.trim()).filter(Boolean);
+                      const models = modelInput.split(",").map(s => s.trim()).filter(Boolean);
                       if (models.length > 0) {
                         setForm(f => ({ ...f, compatibleModels: [...f.compatibleModels, ...models] }));
-                        (e.target as HTMLInputElement).value = "";
+                        setModelInput("");
                       }
                     }
                   }}
