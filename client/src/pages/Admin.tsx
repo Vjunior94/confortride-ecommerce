@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import {
   Package, ShoppingBag, Users, TrendingUp, Plus, Pencil, Trash2, ChevronDown,
-  LayoutDashboard, Tag, ArrowLeft, Check, X, Search, Upload,
+  LayoutDashboard, Tag, ArrowLeft, Check, X, Search, Upload, Eye,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 function formatPrice(price: string | number) {
@@ -21,6 +22,21 @@ function formatPrice(price: string | number) {
 const STATUS_LABELS: Record<string, string> = {
   awaiting_payment: "Aguardando Pagamento", pending: "Pendente", confirmed: "Confirmado", processing: "Em Processamento",
   shipped: "Enviado", delivered: "Entregue", cancelled: "Cancelado", payment_failed: "Pagamento Recusado",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  awaiting_payment: "bg-yellow-100 text-yellow-800",
+  pending: "bg-orange-100 text-orange-800",
+  confirmed: "bg-blue-100 text-blue-800",
+  processing: "bg-indigo-100 text-indigo-800",
+  shipped: "bg-purple-100 text-purple-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+  payment_failed: "bg-red-100 text-red-800",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: "PIX", credit_card: "Cartão de Crédito", boleto: "Boleto Bancário",
 };
 
 type AdminTab = "dashboard" | "products" | "orders" | "categories" | "users";
@@ -328,6 +344,42 @@ function OrdersTab() {
     onError: (e) => toast.error(e.message),
   });
 
+  // Order detail state
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const { data: orderDetail, isLoading: isDetailLoading } = trpc.orders.detail.useQuery(
+    { id: selectedOrderId! },
+    { enabled: selectedOrderId !== null }
+  );
+
+  // Shipping dialog state
+  const [shippingDialog, setShippingDialog] = useState<{ orderId: number } | null>(null);
+  const [trackingCode, setTrackingCode] = useState("");
+  const [carrier, setCarrier] = useState("");
+
+  function handleStatusChange(orderId: number, newStatus: string) {
+    if (newStatus === "shipped") {
+      setTrackingCode("");
+      setCarrier("");
+      setShippingDialog({ orderId });
+      return;
+    }
+    updateStatusMutation.mutate({ id: orderId, status: newStatus as any });
+  }
+
+  function handleShippingConfirm() {
+    if (!shippingDialog || !trackingCode.trim()) {
+      toast.error("Informe o código de rastreio.");
+      return;
+    }
+    updateStatusMutation.mutate({
+      id: shippingDialog.orderId,
+      status: "shipped",
+      trackingCode: trackingCode.trim(),
+      carrier: carrier.trim() || undefined,
+    });
+    setShippingDialog(null);
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>PEDIDOS</h2>
@@ -346,6 +398,7 @@ function OrdersTab() {
                   <th className="text-left px-4 py-3 text-gray-600 font-medium hidden md:table-cell">Total</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium">Status</th>
                   <th className="text-left px-4 py-3 text-gray-600 font-medium hidden md:table-cell">Data</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium w-12"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -357,7 +410,7 @@ function OrdersTab() {
                     <td className="px-4 py-3">
                       <Select
                         value={order.status}
-                        onValueChange={(v) => updateStatusMutation.mutate({ id: order.id, status: v as any })}
+                        onValueChange={(v) => handleStatusChange(order.id, v)}
                       >
                         <SelectTrigger className={`h-7 text-xs w-36 status-${order.status} border-0`}>
                           <SelectValue />
@@ -372,6 +425,11 @@ function OrdersTab() {
                     <td className="px-4 py-3 hidden md:table-cell text-gray-400 text-xs">
                       {new Date(order.created_at).toLocaleDateString("pt-BR")}
                     </td>
+                    <td className="px-4 py-3">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setSelectedOrderId(order.id)}>
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -379,6 +437,193 @@ function OrdersTab() {
           </div>
         )}
       </div>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={selectedOrderId !== null} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {isDetailLoading ? (
+            <div className="p-8 text-center text-gray-400">Carregando detalhes...</div>
+          ) : orderDetail ? (() => {
+            const addr = orderDetail.address_snapshot as any;
+            const payment = orderDetail.payment_data as any;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3">
+                    Pedido #{orderDetail.id}
+                    <Badge className={`${STATUS_COLORS[orderDetail.status] ?? "bg-gray-100 text-gray-800"} text-xs font-medium border-0`}>
+                      {STATUS_LABELS[orderDetail.status] ?? orderDetail.status}
+                    </Badge>
+                  </DialogTitle>
+                  <DialogDescription>
+                    {new Date(orderDetail.created_at).toLocaleString("pt-BR")}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-5 py-2">
+                  {/* Cliente */}
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Cliente</h4>
+                    <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                      <p><span className="text-gray-500">Nome:</span> {orderDetail.profiles?.name ?? "—"}</p>
+                      <p><span className="text-gray-500">Email:</span> {orderDetail.profiles?.email ?? "—"}</p>
+                      <p><span className="text-gray-500">Telefone:</span> {orderDetail.profiles?.phone ?? "—"}</p>
+                    </div>
+                  </section>
+
+                  {/* Endereço de Entrega */}
+                  {addr && (
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Endereço de Entrega</h4>
+                      <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                        <p>{addr.street}{addr.number ? `, ${addr.number}` : ""}</p>
+                        {addr.complement && <p>{addr.complement}</p>}
+                        <p>{addr.neighborhood}{addr.city ? ` — ${addr.city}` : ""}{addr.state ? `/${addr.state}` : ""}</p>
+                        <p className="text-gray-500">CEP: {addr.zipCode ?? addr.cep ?? "—"}</p>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Itens do Pedido */}
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Itens do Pedido</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b">
+                          <tr>
+                            <th className="text-left px-3 py-2 text-gray-600 font-medium">Produto</th>
+                            <th className="text-center px-3 py-2 text-gray-600 font-medium w-16">Qtd</th>
+                            <th className="text-right px-3 py-2 text-gray-600 font-medium w-24">Unitário</th>
+                            <th className="text-right px-3 py-2 text-gray-600 font-medium w-24">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {(orderDetail.order_items as any[])?.map((item: any) => (
+                            <tr key={item.id}>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  {item.productImageUrl && (
+                                    <img src={item.productImageUrl} alt="" className="w-8 h-8 rounded object-cover" />
+                                  )}
+                                  <span className="text-gray-900">{item.productName ?? `Produto #${item.productId}`}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-center text-gray-600">{item.quantity}</td>
+                              <td className="px-3 py-2 text-right text-gray-600">{formatPrice(item.unitPrice)}</td>
+                              <td className="px-3 py-2 text-right font-medium text-gray-900">{formatPrice(item.totalPrice)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="border-t bg-gray-50 px-3 py-2 text-sm space-y-1">
+                        {orderDetail.subtotal && (
+                          <div className="flex justify-between text-gray-600">
+                            <span>Subtotal</span>
+                            <span>{formatPrice(orderDetail.subtotal)}</span>
+                          </div>
+                        )}
+                        {orderDetail.shipping_cost != null && Number(orderDetail.shipping_cost) > 0 && (
+                          <div className="flex justify-between text-gray-600">
+                            <span>Frete</span>
+                            <span>{formatPrice(orderDetail.shipping_cost)}</span>
+                          </div>
+                        )}
+                        {orderDetail.discount != null && Number(orderDetail.discount) > 0 && (
+                          <div className="flex justify-between text-green-600">
+                            <span>Desconto</span>
+                            <span>-{formatPrice(orderDetail.discount)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-gray-900 pt-1 border-t border-gray-200">
+                          <span>Total</span>
+                          <span className="text-red-600">{formatPrice(orderDetail.total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Pagamento */}
+                  <section>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Pagamento</h4>
+                    <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                      <p><span className="text-gray-500">Método:</span> {PAYMENT_METHOD_LABELS[orderDetail.payment_method ?? ""] ?? orderDetail.payment_method ?? "—"}</p>
+                      <p><span className="text-gray-500">Status:</span> {orderDetail.payment_status ?? "—"}</p>
+                      {orderDetail.payment_id && (
+                        <p><span className="text-gray-500">ID Pagamento:</span> <span className="font-mono text-xs">{orderDetail.payment_id}</span></p>
+                      )}
+                      {payment?.card_last_four && (
+                        <p><span className="text-gray-500">Cartão:</span> **** {payment.card_last_four}</p>
+                      )}
+                      {payment?.installments && payment.installments > 1 && (
+                        <p><span className="text-gray-500">Parcelas:</span> {payment.installments}x</p>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Rastreio */}
+                  {orderDetail.tracking_code && (
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Rastreio</h4>
+                      <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                        <p><span className="text-gray-500">Código:</span> <span className="font-mono">{orderDetail.tracking_code}</span></p>
+                        {orderDetail.carrier && (
+                          <p><span className="text-gray-500">Transportadora:</span> {orderDetail.carrier}</p>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Observações */}
+                  {orderDetail.notes && (
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Observações</h4>
+                      <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">{orderDetail.notes}</div>
+                    </section>
+                  )}
+                </div>
+              </>
+            );
+          })() : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Shipping Dialog - asks for tracking code and carrier */}
+      <Dialog open={!!shippingDialog} onOpenChange={(open) => !open && setShippingDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Informações de Envio — Pedido #{shippingDialog?.orderId}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="trackingCode">Código de Rastreio *</Label>
+              <Input
+                id="trackingCode"
+                placeholder="Ex: BR123456789XX"
+                value={trackingCode}
+                onChange={(e) => setTrackingCode(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="carrier">Transportadora</Label>
+              <Input
+                id="carrier"
+                placeholder="Ex: Correios, Jadlog, Total Express"
+                value={carrier}
+                onChange={(e) => setCarrier(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              O cliente será notificado por e-mail e WhatsApp com essas informações.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShippingDialog(null)}>Cancelar</Button>
+            <Button onClick={handleShippingConfirm} disabled={updateStatusMutation.isPending}>
+              Confirmar Envio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
