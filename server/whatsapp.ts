@@ -83,13 +83,22 @@ export async function sendTextMessage(to: string, text: string) {
 //
 // Before using these functions, you must create the corresponding
 // templates in Meta Business Manager > WhatsApp > Message Templates.
-// Template names and parameter counts must match exactly.
+// Template names, parameter counts and component types must match exactly.
+//
+// See: /whatsapp-templates-meta.md for the full template text to submit.
 // ══════════════════════════════════════════════════════════════
+
+const APP_URL = process.env.VITE_APP_URL || "http://localhost:3000";
+const ACCOUNT_URL = `${APP_URL}/minha-conta`;
 
 /**
  * Template: order_confirmation
- * Body: "Olá {{1}}! Seu pedido #{{2}} foi recebido. Total: {{3}}. Acompanhe em {{4}}"
- * Params: customerName, orderId, total, trackingUrl
+ * Header: "Pedido Recebido!"
+ * Body: "Olá {{1}}, tudo bem? Seu pedido *#{{2}}* foi recebido com sucesso!
+ *        Valor total: *{{3}}*
+ *        Agora é só realizar o pagamento para darmos andamento..."
+ * Footer: "ConfortRide - Acessórios para Motociclistas"
+ * Button: "Acompanhar Pedido" → {{4}}
  */
 export async function sendOrderConfirmationWhatsApp(params: {
   phone: string;
@@ -97,7 +106,6 @@ export async function sendOrderConfirmationWhatsApp(params: {
   orderId: number;
   total: number;
 }) {
-  const APP_URL = process.env.VITE_APP_URL || "http://localhost:3000";
   return sendWhatsApp(params.phone, {
     type: "template",
     template: {
@@ -110,7 +118,14 @@ export async function sendOrderConfirmationWhatsApp(params: {
             { type: "text", text: params.customerName },
             { type: "text", text: String(params.orderId) },
             { type: "text", text: formatPrice(params.total) },
-            { type: "text", text: `${APP_URL}/minha-conta` },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            { type: "text", text: ACCOUNT_URL },
           ],
         },
       ],
@@ -120,8 +135,11 @@ export async function sendOrderConfirmationWhatsApp(params: {
 
 /**
  * Template: payment_confirmed
- * Body: "Olá {{1}}! O pagamento do pedido #{{2}} foi aprovado ({{3}}). Estamos preparando o envio!"
- * Params: customerName, orderId, total
+ * Header: "Pagamento Confirmado!"
+ * Body: "Olá {{1}}! O pagamento do seu pedido *#{{2}}* no valor de *{{3}}* foi aprovado!
+ *        Estamos preparando seu pedido com todo cuidado..."
+ * Footer: "ConfortRide - Acessórios para Motociclistas"
+ * Button: "Ver Meus Pedidos" → {{4}}
  */
 export async function sendPaymentConfirmedWhatsApp(params: {
   phone: string;
@@ -143,6 +161,14 @@ export async function sendPaymentConfirmedWhatsApp(params: {
             { type: "text", text: formatPrice(params.total) },
           ],
         },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            { type: "text", text: ACCOUNT_URL },
+          ],
+        },
       ],
     },
   });
@@ -150,8 +176,11 @@ export async function sendPaymentConfirmedWhatsApp(params: {
 
 /**
  * Template: order_shipped
- * Body: "Olá {{1}}! Seu pedido #{{2}} foi enviado! Código de rastreio: {{3}} ({{4}})"
- * Params: customerName, orderId, trackingCode, carrier
+ * Header: "Pedido Enviado!"
+ * Body: "Olá {{1}}! Ótima notícia! Seu pedido *#{{2}}* está a caminho!
+ *        Transportadora: *{{3}}*  Código de rastreio: *{{4}}*..."
+ * Footer: "ConfortRide - Acessórios para Motociclistas"
+ * Button: "Rastrear Pedido" → {{5}}
  */
 export async function sendOrderShippedWhatsApp(params: {
   phone: string;
@@ -171,8 +200,16 @@ export async function sendOrderShippedWhatsApp(params: {
           parameters: [
             { type: "text", text: params.customerName },
             { type: "text", text: String(params.orderId) },
-            { type: "text", text: params.trackingCode },
             { type: "text", text: params.carrier },
+            { type: "text", text: params.trackingCode },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            { type: "text", text: ACCOUNT_URL },
           ],
         },
       ],
@@ -182,8 +219,11 @@ export async function sendOrderShippedWhatsApp(params: {
 
 /**
  * Template: delivery_thankyou
- * Body: "Olá {{1}}! Seu pedido #{{2}} foi entregue! Esperamos que tenha gostado. Obrigado por escolher a ConfortRide!"
- * Params: customerName, orderId
+ * Header: "Pedido Entregue!"
+ * Body: "Olá {{1}}! Seu pedido *#{{2}}* foi entregue!
+ *        Esperamos que você esteja curtindo seu novo acessório..."
+ * Footer: "ConfortRide - Acessórios para Motociclistas"
+ * Button: "Avaliar Produto" → {{3}}
  */
 export async function sendDeliveryThankYouWhatsApp(params: {
   phone: string;
@@ -201,6 +241,55 @@ export async function sendDeliveryThankYouWhatsApp(params: {
           parameters: [
             { type: "text", text: params.customerName },
             { type: "text", text: String(params.orderId) },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            { type: "text", text: ACCOUNT_URL },
+          ],
+        },
+      ],
+    },
+  });
+}
+
+/**
+ * Template: payment_reminder
+ * Header: "Lembrete de Pagamento"
+ * Body: "Olá {{1}}! Notamos que o pagamento do seu pedido *#{{2}}* ({{3}}) ainda está pendente.
+ *        Para garantir seus produtos, finalize o pagamento o quanto antes..."
+ * Footer: "ConfortRide - Acessórios para Motociclistas"
+ * Button: "Finalizar Pagamento" → {{4}}
+ */
+export async function sendPaymentReminderWhatsApp(params: {
+  phone: string;
+  customerName: string;
+  orderId: number;
+  total: number;
+}) {
+  return sendWhatsApp(params.phone, {
+    type: "template",
+    template: {
+      name: "payment_reminder",
+      language: { code: "pt_BR" },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: params.customerName },
+            { type: "text", text: String(params.orderId) },
+            { type: "text", text: formatPrice(params.total) },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            { type: "text", text: ACCOUNT_URL },
           ],
         },
       ],

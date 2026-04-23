@@ -13,8 +13,8 @@ import {
 import { supabaseAdmin, supabaseAuth } from "./supabase";
 import { notifyNewOrder, notifyOrderStatusChange } from "./notifications";
 import { createCardPayment, createPixPayment, createBoletoPayment } from "./mercadopago";
-import { sendOrderConfirmation, sendPaymentConfirmed } from "./email";
-import { sendOrderConfirmationWhatsApp, sendPaymentConfirmedWhatsApp } from "./whatsapp";
+import { sendOrderConfirmation, sendPaymentConfirmed, sendOrderShipped, sendDeliveryThankYou } from "./email";
+import { sendOrderConfirmationWhatsApp, sendPaymentConfirmedWhatsApp, sendOrderShippedWhatsApp, sendDeliveryThankYouWhatsApp } from "./whatsapp";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Acesso restrito a administradores." });
@@ -369,12 +369,65 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().optional(), offset: z.number().optional(), status: z.string().optional() }).optional())
       .query(({ input }) => getAllOrders(input ?? {})),
     updateStatus: adminProcedure
-      .input(z.object({ id: z.number(), status: z.enum(["awaiting_payment", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "payment_failed"]), trackingCode: z.string().optional() }))
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["awaiting_payment", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "payment_failed"]),
+        trackingCode: z.string().optional(),
+        carrier: z.string().optional(),
+      }))
       .mutation(async ({ input }) => {
         const order = await getOrderById(input.id);
         if (!order) throw new TRPCError({ code: "NOT_FOUND" });
         await updateOrderStatus(input.id, input.status, input.trackingCode);
-        await notifyOrderStatusChange(order.user_id, input.id, input.status, order.profiles?.name ?? "Cliente");
+
+        const profile = order.profiles as any;
+        const customerName = profile?.name ?? "Cliente";
+        const customerEmail = profile?.email;
+        const customerPhone = profile?.phone;
+
+        // Push notification
+        await notifyOrderStatusChange(order.user_id, input.id, input.status, customerName);
+
+        // Shipped → send email + WhatsApp with tracking info
+        if (input.status === "shipped" && input.trackingCode) {
+          if (customerEmail) {
+            sendOrderShipped({
+              orderId: input.id,
+              customerName,
+              customerEmail,
+              trackingCode: input.trackingCode,
+              carrier: input.carrier ?? "Transportadora",
+            }).catch(err => console.warn("[Admin] Shipping email failed:", err?.message));
+          }
+          if (customerPhone) {
+            sendOrderShippedWhatsApp({
+              phone: customerPhone,
+              customerName,
+              orderId: input.id,
+              trackingCode: input.trackingCode,
+              carrier: input.carrier ?? "Transportadora",
+            }).catch(err => console.warn("[Admin] Shipping WhatsApp failed:", err?.message));
+          }
+        }
+
+        // Delivered → send thank you email + WhatsApp
+        if (input.status === "delivered") {
+          if (customerEmail) {
+            sendDeliveryThankYou({
+              orderId: input.id,
+              customerName,
+              customerEmail,
+            }).catch(err => console.warn("[Admin] Delivery email failed:", err?.message));
+          }
+          if (customerPhone) {
+            sendDeliveryThankYouWhatsApp({
+              phone: customerPhone,
+              customerName,
+              orderId: input.id,
+            }).catch(err => console.warn("[Admin] Delivery WhatsApp failed:", err?.message));
+          }
+        }
+
         return { success: true };
       }),
     stats: adminProcedure.query(() => getOrderStats()),

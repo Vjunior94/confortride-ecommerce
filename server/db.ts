@@ -156,7 +156,7 @@ export async function getOrdersByUserId(userId: string) {
 }
 
 export async function getOrderById(id: number) {
-  const { data, error } = await supabaseAdmin.from("orders").select("*, order_items(*), profiles(name, email)").eq("id", id).single();
+  const { data, error } = await supabaseAdmin.from("orders").select("*, order_items(*), profiles(name, email, phone)").eq("id", id).single();
   if (error && error.code !== "PGRST116") throw error;
   return data;
 }
@@ -168,7 +168,7 @@ export async function getOrderItems(orderId: number) {
 }
 
 export async function getAllOrders(opts: { status?: string; limit?: number; offset?: number } = {}) {
-  let query = supabaseAdmin.from("orders").select("*, order_items(*), profiles(name, email)", { count: "exact" }).order("created_at", { ascending: false });
+  let query = supabaseAdmin.from("orders").select("*, order_items(*), profiles(name, email, phone)", { count: "exact" }).order("created_at", { ascending: false });
   if (opts.status) query = query.eq("status", opts.status);
   if (opts.limit) query = query.limit(opts.limit);
   if (opts.offset) query = query.range(opts.offset, opts.offset + (opts.limit ?? 20) - 1);

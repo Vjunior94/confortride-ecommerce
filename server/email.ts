@@ -10,8 +10,14 @@ if (!apiKey) {
 
 const client = apiKey ? new BrevoClient({ apiKey }) : null;
 
-const SENDER = { name: "ConfortRide", email: "noreply@confortride.com.br" };
+const SENDER = { name: "ConfortRide", email: process.env.EMAIL_SENDER || "contato@confortride.com.br" };
+const REPLY_TO = { name: "ConfortRide", email: process.env.EMAIL_REPLY_TO || process.env.EMAIL_SENDER || "contato@confortride.com.br" };
 const APP_URL = process.env.VITE_APP_URL || "http://localhost:3000";
+
+// Omnichannel contact info
+const CONTACT_WHATSAPP = process.env.CONTACT_WHATSAPP || "";
+const CONTACT_INSTAGRAM = process.env.CONTACT_INSTAGRAM || "";
+const CONTACT_PHONE = process.env.CONTACT_PHONE || "";
 
 // ── Types ──
 interface OrderEmailData {
@@ -65,6 +71,18 @@ function baseTemplate(title: string, body: string) {
         <tr><td style="padding:8px 24px 24px;color:#333;font-size:14px;line-height:1.6">
           ${body}
         </td></tr>
+        <!-- Omnichannel Contact -->
+        <tr><td style="background:#1a1a1a;padding:20px 24px;text-align:center">
+          <p style="margin:0 0 12px;color:#fff;font-size:14px;font-weight:bold">Fale conosco</p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto">
+            <tr>
+              ${CONTACT_WHATSAPP ? `<td style="padding:0 8px"><a href="https://wa.me/55${CONTACT_WHATSAPP.replace(/\D/g, "")}" style="color:#25d366;text-decoration:none;font-size:13px">&#9742; WhatsApp</a></td>` : ""}
+              <td style="padding:0 8px"><a href="mailto:${REPLY_TO.email}" style="color:#60a5fa;text-decoration:none;font-size:13px">&#9993; E-mail</a></td>
+              ${CONTACT_INSTAGRAM ? `<td style="padding:0 8px"><a href="https://instagram.com/${CONTACT_INSTAGRAM.replace("@", "")}" style="color:#e879f9;text-decoration:none;font-size:13px">&#128247; Instagram</a></td>` : ""}
+            </tr>
+          </table>
+          ${CONTACT_PHONE ? `<p style="margin:10px 0 0;color:#999;font-size:12px">&#9990; ${CONTACT_PHONE}</p>` : ""}
+        </td></tr>
         <!-- Footer -->
         <tr><td style="background:#f9f9f9;padding:16px 24px;text-align:center;font-size:12px;color:#999">
           <p style="margin:0">ConfortRide &mdash; Acessórios para Motociclistas</p>
@@ -86,6 +104,7 @@ async function sendEmail(to: { name: string; email: string }, subject: string, h
   try {
     const result = await client.transactionalEmails.sendTransacEmail({
       sender: SENDER,
+      replyTo: REPLY_TO,
       to: [{ email: to.email, name: to.name }],
       subject,
       htmlContent,
