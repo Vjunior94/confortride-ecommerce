@@ -1,12 +1,95 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "wouter";
-import { ShoppingCart, ArrowLeft, Package, Minus, Plus, CheckCircle } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Package, Minus, Plus, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 
 function formatPrice(price: string | number) {
   return Number(price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
+  const [current, setCurrent] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const goTo = useCallback((index: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrent(index);
+    setTimeout(() => setIsTransitioning(false), 500);
+  }, [isTransitioning]);
+
+  const goNext = useCallback(() => goTo((current + 1) % images.length), [current, images.length, goTo]);
+  const goPrev = useCallback(() => goTo((current - 1 + images.length) % images.length), [current, images.length, goTo]);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const timer = setInterval(goNext, 4000);
+    return () => clearInterval(timer);
+  }, [goNext, images.length]);
+
+  if (images.length === 1) {
+    return (
+      <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+        <img src={images[0]} alt={alt} className="w-full aspect-square object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative group">
+      {/* Slides */}
+      <div className="aspect-square overflow-hidden relative">
+        <div
+          className="flex h-full transition-transform duration-500 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {images.map((src, i) => (
+            <img key={i} src={src} alt={`${alt} - ${i + 1}`} className="w-full h-full object-cover shrink-0" />
+          ))}
+        </div>
+      </div>
+
+      {/* Arrows */}
+      <button
+        onClick={goPrev}
+        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <ChevronLeft className="h-5 w-5 text-gray-700" />
+      </button>
+      <button
+        onClick={goNext}
+        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <ChevronRight className="h-5 w-5 text-gray-700" />
+      </button>
+
+      {/* Dots */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i)}
+            className={`rounded-full transition-all duration-300 ${i === current ? "w-6 h-2 bg-red-600" : "w-2 h-2 bg-white/70 hover:bg-white"}`}
+          />
+        ))}
+      </div>
+
+      {/* Thumbnails */}
+      <div className="flex gap-2 p-3 overflow-x-auto">
+        {images.map((src, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i)}
+            className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-colors ${i === current ? "border-red-600" : "border-transparent hover:border-gray-300"}`}
+          >
+            <img src={src} alt={`${alt} - ${i + 1}`} className="w-full h-full object-cover" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ProductDetail() {
@@ -62,6 +145,11 @@ export default function ProductDetail() {
     ? Math.round((1 - parseFloat(product.price) / parseFloat(product.original_price)) * 100)
     : 0;
 
+  const allImages: string[] = [
+    ...(product.image_url ? [product.image_url] : []),
+    ...((product.images as string[] | null) ?? []).filter((img: string) => img !== product.image_url),
+  ];
+
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -75,14 +163,14 @@ export default function ProductDetail() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-          {/* Image */}
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-            {product.image_url ? (
-              <img src={product.image_url} alt={product.name} className="w-full aspect-square object-cover" />
-            ) : (
+          {/* Image Carousel */}
+          {allImages.length > 0 ? (
+            <ImageCarousel images={allImages} alt={product.name} />
+          ) : (
+            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
               <div className="aspect-square flex items-center justify-center text-8xl bg-gray-50">🏍️</div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Info */}
           <div className="space-y-6">
