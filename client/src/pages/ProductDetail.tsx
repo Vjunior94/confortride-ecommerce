@@ -174,7 +174,7 @@ export default function ProductDetail() {
               {discount > 0 && (
                 <>
                   <span className="text-lg text-gray-400 line-through">{formatPrice(product.original_price!)}</span>
-                  <span className="bg-red-100 text-red-700 text-sm font-bold px-2 py-0.5 rounded">-{discount}%</span>
+                  <span className="bg-green-100 text-green-700 text-sm font-bold px-2 py-0.5 rounded">-{discount}%</span>
                 </>
               )}
             </div>

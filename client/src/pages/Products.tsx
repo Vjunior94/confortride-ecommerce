@@ -171,7 +171,7 @@ export default function Products() {
                       <div className="w-full h-full flex items-center justify-center text-5xl">🏍️</div>
                     )}
                     {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
-                      <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded">
+                      <div className="absolute top-2 left-2 bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded">
                         -{Math.round((1 - parseFloat(product.price) / parseFloat(product.original_price)) * 100)}%
                       </div>
                     )}
