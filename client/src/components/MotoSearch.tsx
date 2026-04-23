@@ -51,7 +51,7 @@ export default function MotoSearch() {
           ) : (
             <div className="space-y-2">
               {products.map((p: any) => (
-                <Link key={p.id} href={`/produtos/${p.slug}`}>
+                <Link key={p.id} href={`/produto/${p.slug}`}>
                   <div className="bg-gray-800 hover:bg-gray-700 rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-colors">
                     <div className="w-14 h-14 bg-gray-700 rounded-lg overflow-hidden shrink-0">
                       {p.image_url ? (

@@ -172,7 +172,7 @@ export default function Products() {
                     )}
                     {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
                       <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-                        -{Math.round((1 - parseFloat(product.price) / parseFloat(product.comparePrice)) * 100)}%
+                        -{Math.round((1 - parseFloat(product.price) / parseFloat(product.original_price)) * 100)}%
                       </div>
                     )}
                     {product.stock === 0 && (
@@ -187,8 +187,8 @@ export default function Products() {
                     <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 hover:text-red-600 transition-colors">{product.name}</h3>
                   </Link>
                   <div className="mt-2 flex items-center gap-2">
-                    {product.comparePrice && parseFloat(product.comparePrice) > parseFloat(product.price) && (
-                      <span className="text-xs text-gray-400 line-through">{formatPrice(product.comparePrice)}</span>
+                    {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
+                      <span className="text-xs text-gray-400 line-through">{formatPrice(product.original_price)}</span>
                     )}
                     <span className="font-bold text-red-600">{formatPrice(product.price)}</span>
                   </div>

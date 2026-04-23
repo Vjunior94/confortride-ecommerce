@@ -21,7 +21,7 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     if (!product) return;
     for (let i = 0; i < quantity; i++) {
-      addItem({ productId: product.id, name: product.name, price: parseFloat(product.price), imageUrl: product.imageUrl, stock: product.stock });
+      addItem({ productId: product.id, name: product.name, price: parseFloat(product.price), imageUrl: product.image_url, stock: product.stock });
     }
     setDrawerOpen(true);
   };
@@ -58,8 +58,8 @@ export default function ProductDetail() {
     );
   }
 
-  const discount = product.comparePrice && parseFloat(product.comparePrice) > parseFloat(product.price)
-    ? Math.round((1 - parseFloat(product.price) / parseFloat(product.comparePrice)) * 100)
+  const discount = product.original_price && parseFloat(product.original_price) > parseFloat(product.price)
+    ? Math.round((1 - parseFloat(product.price) / parseFloat(product.original_price)) * 100)
     : 0;
 
   return (
@@ -77,8 +77,8 @@ export default function ProductDetail() {
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Image */}
           <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-            {product.imageUrl ? (
-              <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+            {product.image_url ? (
+              <img src={product.image_url} alt={product.name} className="w-full aspect-square object-cover" />
             ) : (
               <div className="aspect-square flex items-center justify-center text-8xl bg-gray-50">🏍️</div>
             )}
@@ -96,7 +96,7 @@ export default function ProductDetail() {
               <span className="text-3xl font-bold text-red-600">{formatPrice(product.price)}</span>
               {discount > 0 && (
                 <>
-                  <span className="text-lg text-gray-400 line-through">{formatPrice(product.comparePrice!)}</span>
+                  <span className="text-lg text-gray-400 line-through">{formatPrice(product.original_price!)}</span>
                   <span className="bg-red-100 text-red-700 text-sm font-bold px-2 py-0.5 rounded">-{discount}%</span>
                 </>
               )}
