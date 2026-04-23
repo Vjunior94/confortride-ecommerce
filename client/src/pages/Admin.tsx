@@ -378,29 +378,35 @@ function ProductsTab() {
               <div className="mt-1 space-y-2">
                 {form.compatibleModels.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {form.compatibleModels.map((model, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        {model}
-                        <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: f.compatibleModels.filter((_, j) => j !== i) }))} className="text-gray-400 hover:text-red-500">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
+                    {form.compatibleModels.map((model, i) => {
+                      const isDuplicate = form.compatibleModels.indexOf(model) !== i;
+                      return (
+                        <span key={i} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isDuplicate ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "bg-gray-100 text-gray-700"}`}>
+                          {model}
+                          {isDuplicate && <span className="text-[10px]">(duplicado)</span>}
+                          <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: f.compatibleModels.filter((_, j) => j !== i) }))} className={`${isDuplicate ? "text-red-400 hover:text-red-600" : "text-gray-400 hover:text-red-500"}`}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
                 <Input
-                  placeholder="Ex: Honda CB 500F 2020 — pressione Enter para adicionar"
+                  placeholder="Ex: Honda CB 500F, Yamaha MT-07, BMW R 1250 — Enter para adicionar"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      const val = (e.target as HTMLInputElement).value.trim();
-                      if (val && !form.compatibleModels.includes(val)) {
-                        setForm(f => ({ ...f, compatibleModels: [...f.compatibleModels, val] }));
+                      const raw = (e.target as HTMLInputElement).value;
+                      const models = raw.split(",").map(s => s.trim()).filter(Boolean);
+                      if (models.length > 0) {
+                        setForm(f => ({ ...f, compatibleModels: [...f.compatibleModels, ...models] }));
                         (e.target as HTMLInputElement).value = "";
                       }
                     }
                   }}
                 />
+                <p className="text-xs text-gray-400">Separe por vírgula para adicionar vários de uma vez. Pressione Enter.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
