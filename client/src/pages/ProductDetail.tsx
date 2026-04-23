@@ -66,12 +66,12 @@ function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
       </button>
 
       {/* Thumbnails */}
-      <div className="flex gap-2 p-3 overflow-x-auto">
+      <div className="flex justify-center gap-3 px-4 py-3 bg-gray-50/80">
         {images.map((src, i) => (
           <button
             key={i}
             onClick={() => goTo(i)}
-            className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-colors ${i === current ? "border-red-600" : "border-transparent hover:border-gray-300"}`}
+            className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 transition-all duration-300 ${i === current ? "ring-2 ring-red-500 ring-offset-2 scale-105 shadow-sm" : "opacity-50 hover:opacity-80 grayscale hover:grayscale-0"}`}
           >
             <img src={src} alt={`${alt} - ${i + 1}`} className="w-full h-full object-cover" />
           </button>
