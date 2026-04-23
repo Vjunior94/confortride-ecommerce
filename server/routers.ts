@@ -105,6 +105,7 @@ export const appRouter = router({
         category_id: z.number(), name: z.string().min(2), description: z.string().optional(),
         price: z.number(), original_price: z.number().optional(), image_url: z.string().optional(),
         sku: z.string().optional(), stock: z.number().default(0), featured: z.boolean().default(false),
+        compatible_models: z.array(z.string()).default([]),
       }))
       .mutation(async ({ input }) => {
         const product = await createProduct({ ...input, slug: toSlug(input.name) + "-" + Date.now() });
@@ -115,6 +116,7 @@ export const appRouter = router({
         id: z.number(), category_id: z.number().optional(), name: z.string().optional(), description: z.string().optional(),
         price: z.number().optional(), original_price: z.number().optional().nullable(), image_url: z.string().optional().nullable(),
         sku: z.string().optional(), stock: z.number().optional(), featured: z.boolean().optional(), active: z.boolean().optional(),
+        compatible_models: z.array(z.string()).optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -127,6 +129,22 @@ export const appRouter = router({
       await softDeleteProduct(input.id);
       return { success: true };
     }),
+    searchByModel: publicProcedure
+      .input(z.object({ model: z.string().min(2) }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin
+          .from("products")
+          .select("*, categories(id, name, slug)")
+          .eq("active", true)
+          .not("compatible_models", "is", null);
+        if (error) throw error;
+        const query = input.model.toLowerCase();
+        const matches = (data ?? []).filter((p: any) => {
+          const models = p.compatible_models as string[];
+          return Array.isArray(models) && models.some(m => m.toLowerCase().includes(query));
+        });
+        return { products: matches };
+      }),
   }),
 
   // ── Addresses ─────────────────────────────────────────────────────────────

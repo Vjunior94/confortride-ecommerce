@@ -180,7 +180,7 @@ function ProductsTab() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
-  const [form, setForm] = useState({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false });
+  const [form, setForm] = useState({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false, compatibleModels: [] as string[] });
 
   const createMutation = trpc.products.create.useMutation({
     onSuccess: () => { utils.products.listAdmin.invalidate(); toast.success("Produto criado!"); setShowForm(false); resetForm(); },
@@ -217,17 +217,17 @@ function ProductsTab() {
     setUploading(false);
   }
 
-  const resetForm = () => setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false });
+  const resetForm = () => setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false, compatibleModels: [] });
 
   const openEdit = (p: any) => {
     setEditProduct(p);
-    setForm({ categoryId: String(p.category_id), name: p.name, description: p.description ?? "", price: String(p.price), comparePrice: String(p.original_price ?? ""), imageUrl: p.image_url ?? "", sku: p.sku ?? "", stock: String(p.stock), featured: p.featured });
+    setForm({ categoryId: String(p.category_id), name: p.name, description: p.description ?? "", price: String(p.price), comparePrice: String(p.original_price ?? ""), imageUrl: p.image_url ?? "", sku: p.sku ?? "", stock: String(p.stock), featured: p.featured, compatibleModels: p.compatible_models ?? [] });
     setShowForm(true);
   };
 
   const handleSubmit = () => {
     if (!form.name || !form.price || !form.categoryId) { toast.error("Preencha nome, preço e categoria."); return; }
-    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price: Number(form.price), original_price: form.comparePrice ? Number(form.comparePrice) : undefined, image_url: form.imageUrl || undefined, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured };
+    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price: Number(form.price), original_price: form.comparePrice ? Number(form.comparePrice) : undefined, image_url: form.imageUrl || undefined, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: form.compatibleModels };
     if (editProduct) updateMutation.mutate({ id: editProduct.id, ...data });
     else createMutation.mutate(data as any);
   };
@@ -361,6 +361,36 @@ function ProductsTab() {
               <div>
                 <Label>Estoque</Label>
                 <Input type="number" value={form.stock} onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))} min="0" className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label>Modelos de Moto Compatíveis</Label>
+              <div className="mt-1 space-y-2">
+                {form.compatibleModels.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.compatibleModels.map((model, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
+                        {model}
+                        <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: f.compatibleModels.filter((_, j) => j !== i) }))} className="text-gray-400 hover:text-red-500">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <Input
+                  placeholder="Ex: Honda CB 500F 2020 — pressione Enter para adicionar"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val && !form.compatibleModels.includes(val)) {
+                        setForm(f => ({ ...f, compatibleModels: [...f.compatibleModels, val] }));
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                />
               </div>
             </div>
             <div className="flex items-center gap-2">

@@ -92,13 +92,13 @@ export async function getProductById(id: number) {
   return data;
 }
 
-export async function createProduct(input: { name: string; slug: string; description?: string; price: number; original_price?: number; category_id?: number; image_url?: string; images?: string[]; stock: number; sku?: string; featured?: boolean }) {
+export async function createProduct(input: { name: string; slug: string; description?: string; price: number; original_price?: number; category_id?: number; image_url?: string; images?: string[]; stock: number; sku?: string; featured?: boolean; compatible_models?: string[] }) {
   const { data, error } = await supabaseAdmin.from("products").insert({ ...input, images: input.images ?? [] }).select().single();
   if (error) throw error;
   return data;
 }
 
-export async function updateProduct(id: number, input: Partial<{ name: string; slug: string; description: string; price: number; original_price: number; category_id: number; image_url: string; images: string[]; stock: number; sku: string; featured: boolean; active: boolean }>) {
+export async function updateProduct(id: number, input: Partial<{ name: string; slug: string; description: string; price: number; original_price: number; category_id: number; image_url: string; images: string[]; stock: number; sku: string; featured: boolean; active: boolean; compatible_models: string[] }>) {
   const { data, error } = await supabaseAdmin.from("products").update({ ...input, updated_at: new Date().toISOString() }).eq("id", id).select().single();
   if (error) throw error;
   return data;

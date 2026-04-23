@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/contexts/CartContext";
 import { Link } from "wouter";
+import MotoSearch from "@/components/MotoSearch";
 
 function formatPrice(price: string | number) {
   return Number(price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -54,6 +55,12 @@ export default function Products() {
       </div>
 
       <div className="container mx-auto px-4 py-6">
+        {/* Motorcycle Search */}
+        <div className="bg-gray-900 rounded-xl p-4 mb-4">
+          <p className="text-white text-sm font-medium mb-2">Buscar por modelo de moto</p>
+          <MotoSearch />
+        </div>
+
         {/* Search & Filter bar */}
         <div className="flex gap-3 mb-6">
           <div className="relative flex-1">

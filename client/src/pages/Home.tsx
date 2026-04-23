@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import MotoSearch from "@/components/MotoSearch";
 
 const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663082404663/FjqZaJ9bgun3ZHiVXwXgxT/LogoConfortRide_fb4b6e27.png";
 
@@ -130,6 +131,19 @@ export default function Home() {
           <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center pt-2">
             <div className="w-1 h-3 bg-white/70 rounded-full" />
           </div>
+        </div>
+      </section>
+
+      {/* Motorcycle Search */}
+      <section className="py-8 bg-gray-900">
+        <div className="max-w-2xl mx-auto px-4 text-center">
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-2" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
+            QUAL SUA MOTO?
+          </h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Digite o modelo da sua moto e descubra os produtos compatíveis
+          </p>
+          <MotoSearch />
         </div>
       </section>
 

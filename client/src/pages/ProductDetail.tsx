@@ -127,6 +127,18 @@ export default function ProductDetail() {
               </div>
             )}
 
+            {/* Compatible Models */}
+            {product.compatible_models && (product.compatible_models as string[]).length > 0 && (
+              <div className="pt-4 border-t border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Modelos de Moto Compatíveis</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {(product.compatible_models as string[]).map((model: string, i: number) => (
+                    <span key={i} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full">{model}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Quantity & Add to cart */}
             {product.stock > 0 && (
               <div className="space-y-4">
