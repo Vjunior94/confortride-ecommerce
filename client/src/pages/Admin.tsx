@@ -180,7 +180,7 @@ function ProductsTab() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
-  const [form, setForm] = useState({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false, compatibleModels: [] as string[] });
+  const [form, setForm] = useState({ categoryId: "", name: "", description: "", price: "", comparePrice: "", images: [] as string[], sku: "", stock: "0", featured: false, compatibleModels: [] as string[] });
 
   const createMutation = trpc.products.create.useMutation({
     onSuccess: () => { utils.products.listAdmin.invalidate(); toast.success("Produto criado!"); setShowForm(false); resetForm(); },
@@ -199,35 +199,42 @@ function ProductsTab() {
   const [uploading, setUploading] = useState(false);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Imagem muito grande (máx 5MB)."); return; }
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const tooBig = files.filter(f => f.size > 5 * 1024 * 1024);
+    if (tooBig.length) { toast.error(`${tooBig.length} imagem(ns) excede(m) 5MB.`); return; }
     setUploading(true);
     try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve((reader.result as string).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const result = await uploadMutation.mutateAsync({ base64, fileName: file.name, contentType: file.type });
-      setForm((f) => ({ ...f, imageUrl: result.url }));
-      toast.success("Imagem enviada!");
+      const urls: string[] = [];
+      for (const file of files) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string).split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const result = await uploadMutation.mutateAsync({ base64, fileName: file.name, contentType: file.type });
+        urls.push(result.url);
+      }
+      setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+      toast.success(`${urls.length} imagem(ns) enviada(s)!`);
     } catch { /* error handled by mutation */ }
     setUploading(false);
+    e.target.value = "";
   }
 
-  const resetForm = () => setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", imageUrl: "", sku: "", stock: "0", featured: false, compatibleModels: [] });
+  const resetForm = () => setForm({ categoryId: "", name: "", description: "", price: "", comparePrice: "", images: [], sku: "", stock: "0", featured: false, compatibleModels: [] });
 
   const openEdit = (p: any) => {
     setEditProduct(p);
-    setForm({ categoryId: String(p.category_id), name: p.name, description: p.description ?? "", price: String(p.price), comparePrice: String(p.original_price ?? ""), imageUrl: p.image_url ?? "", sku: p.sku ?? "", stock: String(p.stock), featured: p.featured, compatibleModels: p.compatible_models ?? [] });
+    const existingImages = p.images?.length ? p.images : (p.image_url ? [p.image_url] : []);
+    setForm({ categoryId: String(p.category_id), name: p.name, description: p.description ?? "", price: String(p.price), comparePrice: String(p.original_price ?? ""), images: existingImages, sku: p.sku ?? "", stock: String(p.stock), featured: p.featured, compatibleModels: p.compatible_models ?? [] });
     setShowForm(true);
   };
 
   const handleSubmit = () => {
     if (!form.name || !form.price || !form.categoryId) { toast.error("Preencha nome, preço e categoria."); return; }
-    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price: Number(form.price), original_price: form.comparePrice ? Number(form.comparePrice) : undefined, image_url: form.imageUrl || undefined, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: form.compatibleModels };
+    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price: Number(form.price), original_price: form.comparePrice ? Number(form.comparePrice) : undefined, image_url: form.images[0] || undefined, images: form.images, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: form.compatibleModels };
     if (editProduct) updateMutation.mutate({ id: editProduct.id, ...data });
     else createMutation.mutate(data as any);
   };
@@ -333,24 +340,27 @@ function ProductsTab() {
               </div>
             </div>
             <div>
-              <Label>Imagem do Produto</Label>
+              <Label>Imagens do Produto</Label>
               <div className="mt-1 space-y-2">
-                {form.imageUrl && (
-                  <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
-                    <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <button type="button" onClick={() => setForm((f) => ({ ...f, imageUrl: "" }))} className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black/80">
-                      <X className="h-3 w-3" />
-                    </button>
+                {form.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {form.images.map((url, i) => (
+                      <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group">
+                        <img src={url} alt={`Imagem ${i + 1}`} className="w-full h-full object-cover" />
+                        {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-red-600 text-white text-[10px] text-center py-0.5">Principal</span>}
+                        <button type="button" onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, j) => j !== i) }))} className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <label className={`inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
-                    <Upload className="h-4 w-4 text-gray-500" />
-                    {uploading ? "Enviando..." : "Enviar imagem"}
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                  </label>
-                </div>
-                <Input value={form.imageUrl} onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))} placeholder="Ou cole a URL da imagem..." className="text-xs" />
+                <label className={`inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                  <Upload className="h-4 w-4 text-gray-500" />
+                  {uploading ? "Enviando..." : "Enviar imagens"}
+                  <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                </label>
+                {form.images.length > 0 && <p className="text-xs text-gray-400">A primeira imagem será a principal. Arraste para reordenar em breve.</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

@@ -104,6 +104,7 @@ export const appRouter = router({
       .input(z.object({
         category_id: z.number(), name: z.string().min(2), description: z.string().optional(),
         price: z.number(), original_price: z.number().optional(), image_url: z.string().optional(),
+        images: z.array(z.string()).default([]),
         sku: z.string().optional(), stock: z.number().default(0), featured: z.boolean().default(false),
         compatible_models: z.array(z.string()).default([]),
       }))
@@ -115,6 +116,7 @@ export const appRouter = router({
       .input(z.object({
         id: z.number(), category_id: z.number().optional(), name: z.string().optional(), description: z.string().optional(),
         price: z.number().optional(), original_price: z.number().optional().nullable(), image_url: z.string().optional().nullable(),
+        images: z.array(z.string()).optional(),
         sku: z.string().optional(), stock: z.number().optional(), featured: z.boolean().optional(), active: z.boolean().optional(),
         compatible_models: z.array(z.string()).optional(),
       }))
