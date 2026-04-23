@@ -287,8 +287,11 @@ function ProductsTab() {
                           {p.image_url ? <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-lg">🏍️</div>}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900 line-clamp-1">{p.name}</p>
-                          {p.featured && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Destaque</span>}
+                          <a href={`/produtos/${p.slug}`} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:text-red-600 hover:underline line-clamp-1 transition-colors">{p.name}</a>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {p.featured && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Destaque</span>}
+                            {p.compatible_models?.length > 0 && <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{p.compatible_models.length} motos</span>}
+                          </div>
                         </div>
                       </div>
                     </td>
