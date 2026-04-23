@@ -232,9 +232,15 @@ function ProductsTab() {
     setShowForm(true);
   };
 
+  const parsePrice = (v: string) => Number(v.replace(",", "."));
+
   const handleSubmit = () => {
     if (!form.name || !form.price || !form.categoryId) { toast.error("Preencha nome, preço e categoria."); return; }
-    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price: Number(form.price), original_price: form.comparePrice ? Number(form.comparePrice) : undefined, image_url: form.images[0] || undefined, images: form.images, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: form.compatibleModels };
+    const price = parsePrice(form.price);
+    const originalPrice = form.comparePrice ? parsePrice(form.comparePrice) : undefined;
+    if (isNaN(price)) { toast.error("Preço inválido."); return; }
+    if (originalPrice !== undefined && isNaN(originalPrice)) { toast.error("Preço original inválido."); return; }
+    const data = { category_id: Number(form.categoryId), name: form.name, description: form.description || undefined, price, original_price: originalPrice, image_url: form.images[0] || undefined, images: form.images, sku: form.sku || undefined, stock: Number(form.stock), featured: form.featured, compatible_models: form.compatibleModels };
     if (editProduct) updateMutation.mutate({ id: editProduct.id, ...data });
     else createMutation.mutate(data as any);
   };
