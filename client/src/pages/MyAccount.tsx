@@ -54,7 +54,7 @@ export default function MyAccount() {
             <h1 className="text-xl font-bold text-gray-900">{user?.name}</h1>
             <p className="text-sm text-gray-500">{user?.email}</p>
           </div>
-          {user?.role === "admin" && (
+          {(user?.role === "admin" || user?.role === "staff") && (
             <Link href="/admin">
               <Button size="sm" className="ml-auto bg-gray-900 hover:bg-gray-800 text-white">Painel Admin</Button>
             </Link>
@@ -192,8 +192,8 @@ function ProfileTab({ user }: { user: any }) {
         </div>
         <div className="flex justify-between py-2 border-b border-gray-50">
           <span className="text-gray-500">Perfil</span>
-          <span className={`font-medium px-2 py-0.5 rounded-full text-xs ${user?.role === "admin" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
-            {user?.role === "admin" ? "Administrador" : "Cliente"}
+          <span className={`font-medium px-2 py-0.5 rounded-full text-xs ${user?.role === "admin" ? "bg-red-100 text-red-700" : user?.role === "staff" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>
+            {user?.role === "admin" ? "Administrador" : user?.role === "staff" ? "Operador" : "Cliente"}
           </span>
         </div>
         <div className="flex justify-between py-2">

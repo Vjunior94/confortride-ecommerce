@@ -45,7 +45,7 @@ export default function Admin() {
   const { user, isAuthenticated } = useAuth();
   const [tab, setTab] = useState<AdminTab>("dashboard");
 
-  if (!isAuthenticated || user?.role !== "admin") {
+  if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "staff")) {
     return (
       <div className="min-h-screen pt-16 flex items-center justify-center">
         <div className="text-center">
@@ -58,13 +58,14 @@ export default function Admin() {
     );
   }
 
-  const NAV_ITEMS = [
+  const ALL_NAV_ITEMS = [
     { id: "dashboard" as AdminTab, label: "Dashboard", icon: LayoutDashboard },
-    { id: "products" as AdminTab, label: "Produtos", icon: Package },
+    { id: "products" as AdminTab, label: "Produtos", icon: Package, adminOnly: true },
     { id: "orders" as AdminTab, label: "Pedidos", icon: ShoppingBag },
-    { id: "categories" as AdminTab, label: "Categorias", icon: Tag },
-    { id: "users" as AdminTab, label: "Usuários", icon: Users },
+    { id: "categories" as AdminTab, label: "Categorias", icon: Tag, adminOnly: true },
+    { id: "users" as AdminTab, label: "Usuários", icon: Users, adminOnly: true },
   ];
+  const NAV_ITEMS = user?.role === "admin" ? ALL_NAV_ITEMS : ALL_NAV_ITEMS.filter(i => !i.adminOnly);
 
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
@@ -129,7 +130,12 @@ function DashboardTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total de Pedidos", value: stats?.total ?? 0, icon: ShoppingBag, color: "bg-blue-50 text-blue-600" },
-          { label: "Pedidos Pendentes", value: stats?.pending ?? 0, icon: Package, color: "bg-yellow-50 text-yellow-600" },
+          { label: "Aguardando Pgto", value: stats?.awaiting_payment ?? 0, icon: ShoppingBag, color: "bg-yellow-50 text-yellow-600" },
+          { label: "Confirmados", value: stats?.confirmed ?? 0, icon: Check, color: "bg-blue-50 text-blue-600" },
+          { label: "Em Processamento", value: stats?.processing ?? 0, icon: Package, color: "bg-indigo-50 text-indigo-600" },
+          { label: "Enviados", value: stats?.shipped ?? 0, icon: Package, color: "bg-purple-50 text-purple-600" },
+          { label: "Entregues", value: stats?.delivered ?? 0, icon: Check, color: "bg-green-50 text-green-600" },
+          { label: "Cancelados", value: stats?.cancelled ?? 0, icon: X, color: "bg-red-50 text-red-600" },
           { label: "Receita Total", value: formatPrice(stats?.revenue ?? 0), icon: TrendingUp, color: "bg-green-50 text-green-600" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-xl border border-gray-100 p-4">
@@ -337,7 +343,11 @@ function ProductsTab() {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 function OrdersTab() {
   const utils = trpc.useUtils();
-  const { data: ordersData, isLoading } = trpc.orders.adminList.useQuery({ limit: 50 });
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { data: ordersData, isLoading } = trpc.orders.adminList.useQuery({
+    limit: 50,
+    status: statusFilter === "all" ? undefined : statusFilter,
+  });
   const orders = ordersData?.orders ?? [];
   const updateStatusMutation = trpc.orders.updateStatus.useMutation({
     onSuccess: () => { utils.orders.adminList.invalidate(); toast.success("Status atualizado!"); },
@@ -382,7 +392,20 @@ function OrdersTab() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>PEDIDOS</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>PEDIDOS</h2>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filtrar por status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => (
+              <SelectItem key={v} value={v}>{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-400">Carregando...</div>
@@ -702,7 +725,13 @@ function CategoriesTab() {
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 function UsersTab() {
+  const { user } = useAuth();
+  const utils = trpc.useUtils();
   const { data: users } = trpc.users.list.useQuery();
+  const updateRoleMutation = trpc.users.updateRole.useMutation({
+    onSuccess: () => { utils.users.list.invalidate(); toast.success("Perfil atualizado!"); },
+    onError: (e) => toast.error(e.message),
+  });
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>USUÁRIOS</h2>
@@ -715,6 +744,7 @@ function UsersTab() {
                 <th className="text-left px-4 py-3 text-gray-600 font-medium hidden md:table-cell">Email</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium">Perfil</th>
                 <th className="text-left px-4 py-3 text-gray-600 font-medium hidden md:table-cell">Cadastro</th>
+                <th className="text-left px-4 py-3 text-gray-600 font-medium hidden md:table-cell">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -723,9 +753,28 @@ function UsersTab() {
                   <td className="px-4 py-3 font-medium text-gray-900">{u.name ?? "—"}</td>
                   <td className="px-4 py-3 hidden md:table-cell text-gray-500">{u.email ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.role === "admin" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>{u.role === "admin" ? "Admin" : "Cliente"}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.role === "admin" ? "bg-red-100 text-red-700" : u.role === "staff" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>{u.role === "admin" ? "Admin" : u.role === "staff" ? "Operador" : "Cliente"}</span>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-gray-400 text-xs">{new Date(u.createdAt).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {u.id === user?.id ? (
+                      <span className="text-xs text-gray-400">Você</span>
+                    ) : (
+                      <Select
+                        value={u.role}
+                        onValueChange={(v) => updateRoleMutation.mutate({ id: u.id, role: v as any })}
+                      >
+                        <SelectTrigger className="h-7 text-xs w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">Cliente</SelectItem>
+                          <SelectItem value="staff">Operador</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

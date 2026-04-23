@@ -25,7 +25,7 @@ export async function getAllProfiles() {
   return data ?? [];
 }
 
-export async function updateProfileRole(id: string, role: "user" | "admin") {
+export async function updateProfileRole(id: string, role: "user" | "admin" | "staff") {
   const { error } = await supabaseAdmin.from("profiles").update({ role, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw error;
 }
@@ -177,9 +177,10 @@ export async function getAllOrders(opts: { status?: string; limit?: number; offs
   return { orders: data ?? [], total: count ?? 0 };
 }
 
-export async function updateOrderStatus(id: number, status: string, trackingCode?: string) {
+export async function updateOrderStatus(id: number, status: string, trackingCode?: string, carrier?: string) {
   const update: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (trackingCode) update.tracking_code = trackingCode;
+  if (carrier) update.carrier = carrier;
   const { data, error } = await supabaseAdmin.from("orders").update(update).eq("id", id).select().single();
   if (error) throw error;
   return data;
@@ -219,7 +220,7 @@ export async function getPushSubscriptionsByUserId(userId: string) {
 }
 
 export async function getAllAdminPushSubscriptions() {
-  const { data, error } = await supabaseAdmin.from("push_subscriptions").select("*, profiles!inner(role)").eq("profiles.role", "admin");
+  const { data, error } = await supabaseAdmin.from("push_subscriptions").select("*, profiles!inner(role)").in("profiles.role", ["admin", "staff"]);
   if (error) throw error;
   return data ?? [];
 }

@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router, staffProcedure } from "./_core/trpc";
 import {
   getCategories, getCategoryById, createCategory, updateCategory, deleteCategory,
   getProducts, getProductBySlug, getProductById, createProduct, updateProduct, softDeleteProduct,
@@ -362,13 +362,13 @@ export const appRouter = router({
     detail: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
       const order = await getOrderById(input.id);
       if (!order) throw new TRPCError({ code: "NOT_FOUND" });
-      if (order.user_id !== ctx.user.id && ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      if (order.user_id !== ctx.user.id && ctx.user.role !== "admin" && ctx.user.role !== "staff") throw new TRPCError({ code: "FORBIDDEN" });
       return order;
     }),
-    adminList: adminProcedure
+    adminList: staffProcedure
       .input(z.object({ limit: z.number().optional(), offset: z.number().optional(), status: z.string().optional() }).optional())
       .query(({ input }) => getAllOrders(input ?? {})),
-    updateStatus: adminProcedure
+    updateStatus: staffProcedure
       .input(z.object({
         id: z.number(),
         status: z.enum(["awaiting_payment", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "payment_failed"]),
@@ -378,7 +378,7 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const order = await getOrderById(input.id);
         if (!order) throw new TRPCError({ code: "NOT_FOUND" });
-        await updateOrderStatus(input.id, input.status, input.trackingCode);
+        await updateOrderStatus(input.id, input.status, input.trackingCode, input.carrier);
 
         const profile = order.profiles as any;
         const customerName = profile?.name ?? "Cliente";
@@ -430,14 +430,14 @@ export const appRouter = router({
 
         return { success: true };
       }),
-    stats: adminProcedure.query(() => getOrderStats()),
+    stats: staffProcedure.query(() => getOrderStats()),
   }),
 
   // ── Users (admin) ─────────────────────────────────────────────────────────
   users: router({
     list: adminProcedure.query(() => getAllProfiles()),
     updateRole: adminProcedure
-      .input(z.object({ id: z.string(), role: z.enum(["user", "admin"]) }))
+      .input(z.object({ id: z.string(), role: z.enum(["user", "admin", "staff"]) }))
       .mutation(async ({ input }) => {
         await updateProfileRole(input.id, input.role);
         return { success: true };

@@ -6,7 +6,7 @@ export type SupabaseProfile = {
   name: string | null;
   email: string | null;
   phone: string | null;
-  role: "user" | "admin";
+  role: "user" | "admin" | "staff";
   avatar_url: string | null;
   created_at: string;
   updated_at: string;

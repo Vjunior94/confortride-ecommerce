@@ -76,7 +76,7 @@ export default function Navbar() {
                   <Button variant="ghost" size="sm" className="gap-1.5 hidden md:flex">
                     <User className="h-4 w-4" />
                     <span className="max-w-24 truncate text-sm">{user?.name?.split(" ")[0]}</span>
-                    {user?.role === "admin" && <span className="badge-admin">Admin</span>}
+                    {(user?.role === "admin" || user?.role === "staff") && <span className="badge-admin">Admin</span>}
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -91,7 +91,7 @@ export default function Navbar() {
                       <Package className="h-4 w-4 mr-2" /> Meus Pedidos
                     </Link>
                   </DropdownMenuItem>
-                  {user?.role === "admin" && (
+                  {(user?.role === "admin" || user?.role === "staff") && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
@@ -162,7 +162,7 @@ export default function Navbar() {
               <Link href="/minha-conta/pedidos" className="block text-sm font-medium text-gray-700 py-1" onClick={() => setMobileOpen(false)}>
                 Meus Pedidos
               </Link>
-              {user?.role === "admin" && (
+              {(user?.role === "admin" || user?.role === "staff") && (
                 <Link href="/admin" className="block text-sm font-medium text-red-600 py-1" onClick={() => setMobileOpen(false)}>
                   Painel Admin
                 </Link>
