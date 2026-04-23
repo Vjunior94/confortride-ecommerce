@@ -65,17 +65,6 @@ function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
         <ChevronRight className="h-5 w-5 text-gray-700" />
       </button>
 
-      {/* Dots */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-        {images.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i)}
-            className={`rounded-full transition-all duration-300 ${i === current ? "w-6 h-2 bg-red-600" : "w-2 h-2 bg-white/70 hover:bg-white"}`}
-          />
-        ))}
-      </div>
-
       {/* Thumbnails */}
       <div className="flex gap-2 p-3 overflow-x-auto">
         {images.map((src, i) => (
