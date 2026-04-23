@@ -1,12 +1,132 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, Link } from "wouter";
-import { ShoppingCart, ArrowLeft, Package, Minus, Plus, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, ArrowLeft, Package, Minus, Plus, CheckCircle, ChevronLeft, ChevronRight, Search, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 
 function formatPrice(price: string | number) {
   return Number(price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function normalize(str: string) {
+  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function similarity(a: string, b: string): number {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (na === nb) return 1;
+  if (nb.includes(na) || na.includes(nb)) return 0.85;
+  const wordsA = na.split(" ");
+  const wordsB = nb.split(" ");
+  let matches = 0;
+  for (const wa of wordsA) {
+    if (wa.length < 2) continue;
+    for (const wb of wordsB) {
+      if (wb.includes(wa) || wa.includes(wb)) { matches++; break; }
+    }
+  }
+  const score = wordsA.length > 0 ? matches / Math.max(wordsA.length, wordsB.length) : 0;
+  return score;
+}
+
+function CompatibilityChecker({ models }: { models: string[] }) {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<{ type: "compatible" | "suggestion" | "incompatible"; model?: string } | null>(null);
+
+  const handleCheck = () => {
+    const q = query.trim();
+    if (!q) return;
+    const nq = normalize(q);
+
+    // Exact or contained match
+    const exact = models.find((m) => {
+      const nm = normalize(m);
+      return nm === nq || nm.includes(nq) || nq.includes(nm);
+    });
+    if (exact) {
+      setResult({ type: "compatible", model: exact });
+      return;
+    }
+
+    // Fuzzy: find best similar
+    let best: { model: string; score: number } = { model: "", score: 0 };
+    for (const m of models) {
+      const s = similarity(q, m);
+      if (s > best.score) best = { model: m, score: s };
+    }
+    if (best.score >= 0.4) {
+      setResult({ type: "suggestion", model: best.model });
+    } else {
+      setResult({ type: "incompatible" });
+    }
+  };
+
+  const acceptSuggestion = () => {
+    if (result?.model) {
+      setQuery(result.model);
+      setResult({ type: "compatible", model: result.model });
+    }
+  };
+
+  if (models.length === 0) return null;
+
+  return (
+    <div className="pt-4 border-t border-gray-100">
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">Verifique a compatibilidade</h3>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setResult(null); }}
+            onKeyDown={(e) => e.key === "Enter" && handleCheck()}
+            placeholder="Digite o modelo da sua moto..."
+            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-red-400 transition-colors"
+          />
+        </div>
+        <button
+          onClick={handleCheck}
+          className="px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shrink-0"
+        >
+          Verificar
+        </button>
+      </div>
+
+      {result && (
+        <div className={`mt-3 p-3 rounded-lg text-sm flex items-start gap-2 ${
+          result.type === "compatible" ? "bg-green-50 text-green-800 border border-green-200" :
+          result.type === "suggestion" ? "bg-amber-50 text-amber-800 border border-amber-200" :
+          "bg-red-50 text-red-700 border border-red-200"
+        }`}>
+          {result.type === "compatible" && (
+            <>
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
+              <span>Este produto é compatível com o modelo <strong>{result.model}</strong>.</span>
+            </>
+          )}
+          {result.type === "suggestion" && (
+            <>
+              <HelpCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+              <div>
+                <span>Não encontramos esse modelo exato. Você quis dizer </span>
+                <button onClick={acceptSuggestion} className="font-bold underline hover:no-underline">{result.model}</button>
+                <span>?</span>
+              </div>
+            </>
+          )}
+          {result.type === "incompatible" && (
+            <>
+              <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>Este produto não possui compatibilidade registrada com o modelo informado.</span>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
@@ -205,6 +325,9 @@ export default function ProductDetail() {
                 </>
               )}
             </div>
+
+            {/* Compatibility Checker */}
+            <CompatibilityChecker models={(product.compatible_models as string[] | null) ?? []} />
 
             {/* Description */}
             {product.description && (
