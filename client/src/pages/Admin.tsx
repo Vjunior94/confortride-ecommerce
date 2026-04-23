@@ -419,19 +419,24 @@ function ProductsTab() {
               <Label>Modelos de Moto Compatíveis</Label>
               <div className="mt-1 space-y-2">
                 {form.compatibleModels.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {form.compatibleModels.map((model, i) => {
-                      const isDuplicate = form.compatibleModels.indexOf(model) !== i;
-                      return (
-                        <span key={i} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isDuplicate ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "bg-gray-100 text-gray-700"}`}>
-                          {model}
-                          {isDuplicate && <span className="text-[10px]">(duplicado)</span>}
-                          <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: f.compatibleModels.filter((_, j) => j !== i) }))} className={`${isDuplicate ? "text-red-400 hover:text-red-600" : "text-gray-400 hover:text-red-500"}`}>
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      );
-                    })}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {form.compatibleModels.map((model, i) => {
+                        const isDuplicate = form.compatibleModels.indexOf(model) !== i;
+                        return (
+                          <span key={i} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isDuplicate ? "bg-red-100 text-red-700 ring-1 ring-red-300" : "bg-gray-100 text-gray-700"}`}>
+                            {model}
+                            {isDuplicate && <span className="text-[10px]">(duplicado)</span>}
+                            <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: f.compatibleModels.filter((_, j) => j !== i) }))} className={`${isDuplicate ? "text-red-400 hover:text-red-600" : "text-gray-400 hover:text-red-500"}`}>
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: [] }))} className="text-xs text-red-500 hover:text-red-700 underline">
+                      Remover todos ({form.compatibleModels.length})
+                    </button>
                   </div>
                 )}
                 <Input
