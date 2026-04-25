@@ -34,7 +34,6 @@ export default function Footer() {
               {[
                 { label: "Início", href: "/" },
                 { label: "Produtos", href: "/produtos" },
-                { label: "Categorias", href: "/categorias" },
                 { label: "Sobre Nós", href: "/sobre" },
               ].map((link) => (
                 <li key={link.href}>
@@ -75,7 +74,7 @@ export default function Footer() {
               </li>
               <li className="flex items-start gap-2">
                 <Phone className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                <span>A definir</span>
+                <a href="tel:+554396021892" className="hover:text-red-400 transition-colors">(43) 9602-1892</a>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
