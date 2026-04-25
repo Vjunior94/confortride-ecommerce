@@ -17,7 +17,6 @@ const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663082404663/FjqZa
 const NAV_LINKS = [
   { label: "Início", href: "/" },
   { label: "Produtos", href: "/produtos" },
-  { label: "Categorias", href: "/categorias" },
   { label: "Sobre", href: "/sobre" },
 ];
 

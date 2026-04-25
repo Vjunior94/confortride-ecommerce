@@ -34,7 +34,6 @@ function formatPrice(price: string | number) {
 export default function Home() {
   const { data: featuredProductsData } = trpc.products.list.useQuery({ featured: true, limit: 8 });
   const featuredProducts = featuredProductsData?.products ?? [];
-  const { data: categories } = trpc.categories.list.useQuery();
   const { addItem } = useCart();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [prevSlide, setPrevSlide] = useState<number | null>(null);
@@ -101,9 +100,9 @@ export default function Home() {
                 Ver Produtos <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Link href="/categorias">
+            <Link href="/sobre">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 px-8 py-6 text-lg bg-transparent">
-                Explorar Categorias
+                Sobre Nos
               </Button>
             </Link>
           </div>
@@ -161,33 +160,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Categories */}
-      {categories && categories.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>CATEGORIAS</h2>
-              <p className="text-gray-500 mt-2">Encontre o que você precisa</p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {categories.map((cat) => (
-                <Link key={cat.id} href={`/produtos?categoria=${cat.id}`}>
-                  <div className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-gray-100 aspect-square flex items-center justify-center cursor-pointer">
-                    {cat.imageUrl ? (
-                      <img src={cat.imageUrl} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center"><span className="text-4xl">🏍️</span></div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
-                      <span className="text-white font-semibold text-sm">{cat.name}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Featured Products */}
       <section className="py-16">
