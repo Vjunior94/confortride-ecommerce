@@ -39,7 +39,7 @@ function isModelMatch(query: string, model: string): boolean {
 
 function CompatibilityChecker({ models, productId }: { models: string[]; productId: number }) {
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState<{ type: "compatible" | "suggestion" | "incompatible"; model?: string } | null>(null);
+  const [result, setResult] = useState<{ type: "compatible" | "suggestions" | "incompatible"; models?: string[] } | null>(null);
   const { data: allProductsData } = trpc.products.list.useQuery();
   const allProducts = allProductsData?.products ?? [];
 
@@ -57,31 +57,30 @@ function CompatibilityChecker({ models, productId }: { models: string[]; product
     const q = query.trim();
     if (!q) return;
 
-    // Exact or contained match
-    const exact = models.find((m) => isModelMatch(q, m));
-    if (exact) {
-      setResult({ type: "compatible", model: exact });
+    // Find all exact/contained matches
+    const exactMatches = models.filter((m) => isModelMatch(q, m));
+    if (exactMatches.length > 0) {
+      setResult({ type: "compatible", models: exactMatches });
       return;
     }
 
-    // Fuzzy: find best similar
-    let best: { model: string; score: number } = { model: "", score: 0 };
-    for (const m of models) {
-      const s = similarity(q, m);
-      if (s > best.score) best = { model: m, score: s };
-    }
-    if (best.score >= 0.4) {
-      setResult({ type: "suggestion", model: best.model });
+    // Fuzzy: find all similar models above threshold
+    const fuzzyMatches = models
+      .map((m) => ({ model: m, score: similarity(q, m) }))
+      .filter((entry) => entry.score >= 0.4)
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.model);
+
+    if (fuzzyMatches.length > 0) {
+      setResult({ type: "suggestions", models: fuzzyMatches });
     } else {
       setResult({ type: "incompatible" });
     }
   };
 
-  const acceptSuggestion = () => {
-    if (result?.model) {
-      setQuery(result.model);
-      setResult({ type: "compatible", model: result.model });
-    }
+  const acceptSuggestion = (model: string) => {
+    setQuery(model);
+    setResult({ type: "compatible", models: [model] });
   };
 
   if (models.length === 0) return null;
@@ -112,22 +111,38 @@ function CompatibilityChecker({ models, productId }: { models: string[]; product
       {result && (
         <div className={`mt-3 p-3 rounded-lg text-sm flex items-start gap-2 ${
           result.type === "compatible" ? "bg-green-50 text-green-800 border border-green-200" :
-          result.type === "suggestion" ? "bg-amber-50 text-amber-800 border border-amber-200" :
+          result.type === "suggestions" ? "bg-amber-50 text-amber-800 border border-amber-200" :
           "bg-red-50 text-red-700 border border-red-200"
         }`}>
           {result.type === "compatible" && (
             <>
               <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-green-600" />
-              <span>Este produto é compatível com o modelo <strong>{result.model}</strong>.</span>
+              {result.models!.length === 1 ? (
+                <span>Este produto é compatível com o modelo <strong>{result.models![0]}</strong>.</span>
+              ) : (
+                <div>
+                  <span>Este produto é compatível com os seguintes modelos:</span>
+                  <ul className="mt-1 ml-1 space-y-0.5">
+                    {result.models!.map((m) => (
+                      <li key={m}><strong>{m}</strong></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </>
           )}
-          {result.type === "suggestion" && (
+          {result.type === "suggestions" && (
             <>
               <HelpCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
               <div>
-                <span>Não encontramos esse modelo exato. Você quis dizer </span>
-                <button onClick={acceptSuggestion} className="font-bold underline hover:no-underline">{result.model}</button>
-                <span>?</span>
+                <span>Não encontramos esse modelo exato. Você quis dizer:</span>
+                <ul className="mt-1 ml-1 space-y-0.5">
+                  {result.models!.map((m) => (
+                    <li key={m}>
+                      <button onClick={() => acceptSuggestion(m)} className="font-bold underline hover:no-underline">{m}</button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </>
           )}

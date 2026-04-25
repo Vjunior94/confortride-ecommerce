@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import {
   Package, ShoppingBag, Users, TrendingUp, Plus, Pencil, Trash2, ChevronDown,
-  LayoutDashboard, Tag, ArrowLeft, Check, X, Search, Upload, Eye,
+  LayoutDashboard, Tag, ArrowLeft, Check, X, Search, Upload, Eye, ClipboardList,
+  MessageSquarePlus, FileText, Lightbulb,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -39,7 +40,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   pix: "PIX", credit_card: "Cartão de Crédito", boleto: "Boleto Bancário",
 };
 
-type AdminTab = "dashboard" | "products" | "orders" | "categories" | "users";
+type AdminTab = "dashboard" | "products" | "orders" | "categories" | "users" | "checklist";
 
 export default function Admin() {
   const { user, isAuthenticated } = useAuth();
@@ -64,6 +65,7 @@ export default function Admin() {
     { id: "orders" as AdminTab, label: "Pedidos", icon: ShoppingBag },
     { id: "categories" as AdminTab, label: "Categorias", icon: Tag, adminOnly: true },
     { id: "users" as AdminTab, label: "Usuários", icon: Users, adminOnly: true },
+    { id: "checklist" as AdminTab, label: "Checklist", icon: ClipboardList, adminOnly: true },
   ];
   const NAV_ITEMS = user?.role === "admin" ? ALL_NAV_ITEMS : ALL_NAV_ITEMS.filter(i => !i.adminOnly);
 
@@ -112,6 +114,7 @@ export default function Admin() {
           {tab === "orders" && <OrdersTab />}
           {tab === "categories" && <CategoriesTab />}
           {tab === "users" && <UsersTab />}
+          {tab === "checklist" && <ChecklistTab />}
         </main>
       </div>
     </div>
@@ -434,7 +437,11 @@ function ProductsTab() {
                         );
                       })}
                     </div>
-                    <button type="button" onClick={() => setForm(f => ({ ...f, compatibleModels: [] }))} className="text-xs text-red-500 hover:text-red-700 underline">
+                    <button type="button" onClick={() => {
+                      if (window.confirm(`Tem certeza que deseja remover todos os ${form.compatibleModels.length} modelos compatíveis?`)) {
+                        setForm(f => ({ ...f, compatibleModels: [] }));
+                      }
+                    }} className="text-xs text-red-500 hover:text-red-700 underline">
                       Remover todos ({form.compatibleModels.length})
                     </button>
                   </div>
@@ -957,6 +964,540 @@ function UsersTab() {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Checklist Reunião ────────────────────────────────────────────────────────
+const CHECKLIST_SECTIONS = [
+  {
+    id: "meta",
+    title: "1. Meta Business Manager",
+    subtitle: "Resolver acesso + WhatsApp API",
+    badge: "CRITICO",
+    badgeColor: "bg-red-100 text-red-700",
+    alert: { type: "danger" as const, text: "Problema: O convite enviado pelo cliente para administrar a conta Meta Business nao foi encontrado. Tentativa em 22/04 falhou. Resolver presencialmente." },
+    steps: [
+      { label: "1.1 Acessar o Meta Business do cliente", tag: "CLIENTE", desc: "Pedir para o Diomar logar em business.facebook.com no computador/celular dele. Verificar qual conta Business existe." },
+      { label: "1.2 Verificar convites pendentes", tag: "JUNTOS", desc: "No Meta Business: Configuracoes > Pessoas. Ver se o convite aparece la. Se nao, remover e reenviar. Usar o email correto (confirmar com Diomar)." },
+      { label: "1.3 Alternativa: Adicionar diretamente", tag: "CLIENTE", desc: "Se convite nao funcionar: Configuracoes > Pessoas > Adicionar. Adicionar seu email como Admin. Aceitar na hora pelo celular." },
+      { label: "1.4 Verificar conta WhatsApp Business vinculada", tag: "JUNTOS", desc: "No Meta Business: Configuracoes > Contas > Conta do WhatsApp. Se nao existir, criar. Vincular o numero comercial (43) 9602-1892." },
+      { label: "1.5 Criar App no Meta Developers", tag: "DEV", desc: "Ir em developers.facebook.com > Meus Apps > Criar App > Tipo: Business > Vincular a conta Business do cliente.\n\nTipo: Business\nNome: ConfortRide API\nConta Business: (selecionar a do Diomar)" },
+      { label: "1.6 Ativar WhatsApp no App", tag: "DEV", desc: "No App criado: Adicionar Produto > WhatsApp > Configurar. Selecionar a conta WhatsApp Business vinculada." },
+      { label: "1.7 Obter WHATSAPP_PHONE_ID", tag: "DEV", desc: "No App: WhatsApp > Configuracao da API. Copiar o Phone Number ID do numero vinculado.\n\nWHATSAPP_PHONE_ID=________________\n# Copiar daqui: App > WhatsApp > API Setup > Phone number ID" },
+      { label: "1.8 Criar System User + Token permanente", tag: "DEV", desc: "business.facebook.com > Configuracoes > Usuarios do sistema > Adicionar\nNome: \"ConfortRide API\", Funcao: Admin.\nDepois: Gerar token > Selecionar o App > Permissoes: whatsapp_business_messaging, whatsapp_business_management.\n\nWHATSAPP_TOKEN=________________\n# Token permanente do System User (nao expira)" },
+      { label: "1.9 Cadastrar os 5 templates de mensagem", tag: "DEV", desc: "No Meta Business: WhatsApp > Gerenciamento de conta > Modelos de mensagem > Criar modelo.\nCadastrar os 5 templates (copiar do arquivo whatsapp-templates-meta.md):\n\n1. order_confirmation - Pedido recebido\n2. payment_confirmed - Pagamento aprovado\n3. order_shipped - Pedido enviado\n4. delivery_thankyou - Pedido entregue\n5. payment_reminder - Lembrete de pagamento\n\nℹ Templates levam de minutos a 48h para aprovar. Cadastre todos de uma vez para nao perder tempo." },
+    ],
+  },
+  {
+    id: "mp",
+    title: "2. Mercado Pago - Producao",
+    subtitle: "Trocar credenciais TEST por PROD",
+    badge: "CRITICO",
+    badgeColor: "bg-red-100 text-red-700",
+    alert: { type: "success" as const, text: "Codigo pronto! Integracao completa (PIX, cartao, boleto, webhook). So falta trocar as credenciais de teste pelas de producao." },
+    steps: [
+      { label: "2.1 Acessar conta Mercado Pago do cliente", tag: "CLIENTE", desc: "Pedir ao Diomar para logar em mercadopago.com.br. Ir em Seu negocio > Configuracoes > Gestao e administracao > Credenciais." },
+      { label: "2.2 Selecionar \"Credenciais de producao\"", tag: "JUNTOS", desc: "Na pagina de credenciais, alternar para Producao (nao Teste). Copiar os dois valores abaixo." },
+      { label: "2.3 Copiar Access Token e Public Key", tag: "DEV", desc: "MERCADO_PAGO_ACCESS_TOKEN=APP_USR-_______________\nMERCADO_PAGO_PUBLIC_KEY=APP_USR-_______________\nVITE_MERCADO_PAGO_PUBLIC_KEY=APP_USR-_______________\n# Public Key vai nos dois campos (MERCADO_PAGO_ e VITE_)" },
+      { label: "2.4 Atualizar .env no Railway", tag: "DEV", desc: "Acessar railway.app > ConfortRide > Variables. Atualizar as 3 variaveis com as credenciais de producao. Fazer redeploy." },
+      { label: "2.5 Configurar Webhook de producao", tag: "DEV", desc: "No Mercado Pago: Seu negocio > Webhooks (IPN). Cadastrar a URL de producao:\n\nURL: https://confortride.com.br/api/webhooks/mercadopago\nEventos: payment" },
+      { label: "2.6 Testar pagamento real (PIX de R$1)", tag: "JUNTOS", desc: "Fazer um pedido de teste na loja com PIX de valor baixo. Confirmar que webhook atualiza o status automaticamente." },
+    ],
+  },
+  {
+    id: "email",
+    title: "3. Email - Enviar Como no Gmail",
+    subtitle: "Responder como contato@confortride.com.br",
+    badge: "IMPORTANTE",
+    badgeColor: "bg-yellow-100 text-yellow-700",
+    alert: { type: "success" as const, text: "Recebimento funciona! Emails para contato@confortride.com.br ja chegam no Gmail do Diomar. Falta configurar o envio como esse endereco." },
+    steps: [
+      { label: "3.1 Ativar verificacao em 2 etapas no Google", tag: "CLIENTE", desc: "No Gmail (diomarconfortride@gmail.com): Gerenciar conta Google > Seguranca > Verificacao em duas etapas > Ativar." },
+      { label: "3.2 Criar Senha de App", tag: "CLIENTE", desc: "Ainda em Seguranca: Senhas de app. Nome: \"Email ConfortRide\". Copiar a senha de 16 caracteres gerada." },
+      { label: "3.3 Configurar \"Enviar como\" no Gmail", tag: "JUNTOS", desc: "Gmail: Configuracoes (engrenagem) > Ver todas > Contas e importacao > Enviar e-mail como > Adicionar outro endereco\n\nNome: ConfortRide\nEmail: contato@confortride.com.br\nTratar como alias: SIM\n---\nServidor SMTP: smtp.gmail.com\nPorta: 587\nUsuario: diomarconfortride@gmail.com\nSenha: (senha de app criada no passo anterior)\nConexao: TLS" },
+      { label: "3.4 Confirmar codigo de verificacao", tag: "CLIENTE", desc: "O Google envia um email de confirmacao para o proprio Gmail (via Cloudflare routing). Abrir e confirmar o codigo." },
+      { label: "3.5 Definir como padrao", tag: "CLIENTE", desc: "Em \"Enviar e-mail como\", clicar em \"tornar padrao\" ao lado de contato@confortride.com.br. Assim todas as respostas saem com o email profissional." },
+    ],
+  },
+  {
+    id: "railway",
+    title: "4. Deploy - Atualizar Railway",
+    subtitle: "Subir variaveis e redeploy",
+    badge: "FINAL",
+    badgeColor: "bg-blue-100 text-blue-700",
+    steps: [
+      { label: "4.1 Compilar todas as variaveis novas", tag: "DEV", desc: "Variaveis que precisam ser adicionadas/atualizadas no Railway:\n\nMERCADO_PAGO_ACCESS_TOKEN - Producao (APP_USR-...)\nMERCADO_PAGO_PUBLIC_KEY - Producao (APP_USR-...)\nVITE_MERCADO_PAGO_PUBLIC_KEY - Producao (mesmo valor)\nWHATSAPP_TOKEN - Token do System User\nWHATSAPP_PHONE_ID - ID do numero WhatsApp\nVAPID_PUBLIC_KEY - Ja gerada (atualizar no Railway)\nVAPID_PRIVATE_KEY - Ja gerada (atualizar no Railway)" },
+      { label: "4.2 Fazer redeploy no Railway", tag: "DEV", desc: "Apos atualizar as variaveis, clicar em Deploy > Redeploy para aplicar as mudancas." },
+      { label: "4.3 Teste completo end-to-end", tag: "JUNTOS", desc: "Testar o fluxo completo:\n1. Criar conta na loja\n2. Adicionar produto ao carrinho\n3. Fazer checkout com PIX\n4. Verificar email de confirmacao\n5. Verificar WhatsApp (se templates aprovados)\n6. Simular pagamento e verificar webhook" },
+    ],
+  },
+  {
+    id: "ml",
+    title: "5. Mercado Livre - Integracao",
+    subtitle: "Puxar dados/imagens de produtos",
+    badge: "FUTURO",
+    badgeColor: "bg-orange-100 text-orange-700",
+    alert: { type: "warning" as const, text: "Nao esta no escopo da Fase 2. Se o cliente quiser, precisa ser negociado como adicional ou incluido numa Fase 3. Discutir com o Diomar." },
+    steps: [
+      { label: "5.1 Perguntar ao cliente se vende no ML", tag: "CLIENTE", desc: "Verificar se o Diomar ja tem conta de vendedor no Mercado Livre e se quer sincronizar os produtos entre ML e a loja propria." },
+      { label: "5.2 Definir o que seria sincronizado", tag: "JUNTOS", desc: "Opcoes possiveis:\n- Importar do ML: Puxar fotos, descricoes e precos do ML para a loja\n- Sync de estoque: Quando vender num, atualizar no outro\n- Publicar no ML: Criar anuncios no ML a partir da loja" },
+      { label: "5.3 Se quiser, anotar credenciais ML", tag: "DEV", desc: "Para integrar com ML futuramente, precisaria:\n\nML_APP_ID=_______________\nML_CLIENT_SECRET=_______________\nML_REDIRECT_URI=https://confortride.com.br/api/ml/callback\nML_SELLER_ID=_______________\n\n# Criar app em: developers.mercadolivre.com.br" },
+    ],
+  },
+  {
+    id: "ia",
+    title: "6. API Agente de IA",
+    subtitle: "Conectar API para o agente de noticias",
+    badge: "CRITICO",
+    badgeColor: "bg-red-100 text-red-700",
+    steps: [
+      { label: "6.1 Acessar conta OpenAI ou Anthropic", tag: "JUNTOS", desc: "Logar na conta do cliente na OpenAI (platform.openai.com) ou Anthropic (console.anthropic.com). Se nao tiver conta, criar juntos." },
+      { label: "6.2 Gerar API Key para o projeto", tag: "DEV", desc: "Criar uma API Key dedicada para o projeto ConfortRide.\n\nOpenAI: platform.openai.com > API Keys > Create new secret key\nAnthropic: console.anthropic.com > API Keys > Create Key\n\nNome: ConfortRide-Agente" },
+      { label: "6.3 Configurar billing da API", tag: "JUNTOS", desc: "Adicionar metodo de pagamento na conta da API.\n\nOpenAI: Settings > Billing > Add payment method\nAnthropic: Settings > Plans & Billing" },
+      { label: "6.4 Adicionar variavel no Railway", tag: "DEV", desc: "Adicionar a variavel de ambiente no Railway:\n\nOPENAI_API_KEY=sk-_______________\nou\nANTHROPIC_API_KEY=sk-ant-_______________" },
+    ],
+  },
+  {
+    id: "next",
+    title: "7. Proximos Passos - Alinhar",
+    subtitle: "Semanas 3 e 4 do projeto",
+    badge: "ALINHAR",
+    badgeColor: "bg-purple-100 text-purple-700",
+    steps: [
+      { label: "7.1 Calculo de Frete (Melhor Envio)", tag: "CLIENTE", desc: "O Diomar ja tem conta no Melhor Envio? Se nao, criar juntos. Precisamos das dimensoes e peso de cada produto para calcular frete." },
+      { label: "7.2 Fotos/conteudo dos produtos", tag: "CLIENTE", desc: "Pedir fotos profissionais dos produtos (ou tirar na hora) para usar na loja. Fotos do ML podem servir como base." },
+      { label: "7.3 Dominio e DNS final", tag: "DEV", desc: "Apontar dominio confortride.com.br para o Railway (CNAME). Em andamento - aguardando emissao do certificado SSL pelo Railway." },
+    ],
+  },
+];
+
+const TAG_COLORS: Record<string, string> = {
+  CLIENTE: "bg-amber-100 text-amber-700",
+  DEV: "bg-blue-100 text-blue-700",
+  JUNTOS: "bg-purple-100 text-purple-700",
+};
+
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  "Supabase (DB + Auth)": { label: "Completo", color: "text-green-600" },
+  "Brevo (Emails)": { label: "Completo", color: "text-green-600" },
+  "Cloudflare Email": { label: "Completo", color: "text-green-600" },
+  "Push Notifications": { label: "Completo", color: "text-green-600" },
+  "Mercado Pago": { label: "Teste", color: "text-yellow-600" },
+  "WhatsApp / Meta": { label: "Bloqueado", color: "text-red-600" },
+  "Melhor Envio (Frete)": { label: "Planejado", color: "text-gray-400" },
+  "Mercado Livre": { label: "Nao planejado", color: "text-gray-400" },
+};
+
+type Observation = {
+  id: string;
+  sectionId: string;
+  sectionTitle: string;
+  stepIndex: number | null;
+  stepLabel: string;
+  text: string;
+  createdAt: string;
+};
+
+function ChecklistTab() {
+  const storageKey = "confortride_checklist_admin";
+
+  const loadChecked = (): Record<string, boolean> => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || "{}"); }
+    catch { return {}; }
+  };
+
+  const loadObs = (): Observation[] => {
+    try { return JSON.parse(localStorage.getItem(storageKey + "_obs") || "[]"); }
+    catch { return []; }
+  };
+
+  const [checked, setChecked] = useState<Record<string, boolean>>(loadChecked);
+  const [observations, setObservations] = useState<Observation[]>(loadObs);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ meta: true });
+  const [editingObs, setEditingObs] = useState<string | null>(null);
+  const [obsText, setObsText] = useState("");
+  const [showReport, setShowReport] = useState(false);
+
+  const totalSteps = CHECKLIST_SECTIONS.reduce((sum, s) => sum + s.steps.length, 0);
+  const doneSteps = Object.values(checked).filter(Boolean).length;
+  const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+
+  function toggle(key: string) {
+    const next = { ...checked, [key]: !checked[key] };
+    setChecked(next);
+    localStorage.setItem(storageKey, JSON.stringify(next));
+  }
+
+  function toggleSection(id: string) {
+    setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function startObs(key: string) {
+    if (editingObs === key) {
+      setEditingObs(null);
+      setObsText("");
+    } else {
+      setEditingObs(key);
+      const existing = observations.find(o => o.id === key);
+      setObsText(existing?.text || "");
+    }
+  }
+
+  function saveObs(sectionId: string, sectionTitle: string, stepIndex: number | null, stepLabel: string) {
+    if (!obsText.trim()) return;
+    const key = editingObs!;
+    const existing = observations.filter(o => o.id !== key);
+    const obs: Observation = {
+      id: key,
+      sectionId,
+      sectionTitle,
+      stepIndex,
+      stepLabel,
+      text: obsText.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    const next = [...existing, obs];
+    setObservations(next);
+    localStorage.setItem(storageKey + "_obs", JSON.stringify(next));
+    setEditingObs(null);
+    setObsText("");
+    toast.success("Observacao salva");
+  }
+
+  function deleteObs(id: string) {
+    const next = observations.filter(o => o.id !== id);
+    setObservations(next);
+    localStorage.setItem(storageKey + "_obs", JSON.stringify(next));
+    toast("Observacao removida");
+  }
+
+  function getObsForKey(key: string) {
+    return observations.find(o => o.id === key);
+  }
+
+  // Group observations by section for the report
+  const obsBySection = useMemo(() => {
+    const grouped: Record<string, Observation[]> = {};
+    for (const obs of observations) {
+      if (!grouped[obs.sectionId]) grouped[obs.sectionId] = [];
+      grouped[obs.sectionId].push(obs);
+    }
+    return grouped;
+  }, [observations]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
+            CHECKLIST REUNIAO
+          </h2>
+          <p className="text-gray-500 text-base">Sabado 26/04/2026 - Diomar</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowReport(!showReport)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              showReport ? "bg-red-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            {showReport ? "Voltar ao Checklist" : `Relatorio (${observations.length})`}
+          </button>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-gray-900">{pct}%</p>
+            <p className="text-sm text-gray-500">{doneSteps}/{totalSteps} concluidos</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div
+          className="h-full bg-red-600 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      {showReport ? (
+        /* ─── RELATORIO DE OBSERVACOES ─── */
+        <div className="space-y-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Lightbulb className="h-5 w-5 text-amber-500" />
+              <h3 className="font-semibold text-gray-900">Relatorio de Observacoes</h3>
+            </div>
+            <p className="text-xs text-gray-500">Observacoes organizadas por topico da reuniao. Use para consulta posterior.</p>
+          </div>
+
+          {observations.length === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+              <MessageSquarePlus className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">Nenhuma observacao adicionada ainda.</p>
+              <p className="text-gray-400 text-xs mt-1">Use o botao "Obs" nos itens do checklist para adicionar.</p>
+            </div>
+          ) : (
+            CHECKLIST_SECTIONS.map((section) => {
+              const sectionObs = obsBySection[section.id];
+              if (!sectionObs || sectionObs.length === 0) return null;
+
+              return (
+                <div key={section.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-900 text-sm">{section.title}</h3>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${section.badgeColor}`}>
+                        {section.badge}
+                      </span>
+                      <span className="text-[10px] text-gray-400 ml-auto">{sectionObs.length} obs.</span>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {sectionObs.map((obs) => (
+                      <div key={obs.id} className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <p className="text-xs font-medium text-gray-500">
+                            {obs.stepIndex !== null ? `Item ${obs.stepIndex + 1}: ` : ""}
+                            {obs.stepLabel.length > 80 ? obs.stepLabel.slice(0, 80) + "..." : obs.stepLabel}
+                          </p>
+                          <button
+                            onClick={() => deleteObs(obs.id)}
+                            className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                          <p className="text-sm text-gray-800 whitespace-pre-wrap">{obs.text}</p>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-2">
+                          {new Date(obs.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        /* ─── CHECKLIST ─── */
+        <>
+          {/* Status das APIs */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <h3 className="font-semibold text-gray-900 mb-3 text-base">Status das Integracoes</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {Object.entries(STATUS_MAP).map(([name, { label, color }]) => (
+                <div key={name} className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className={`text-sm font-bold ${color}`}>{label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sections */}
+          {CHECKLIST_SECTIONS.map((section) => {
+            const sectionDone = section.steps.every((_, i) => checked[`${section.id}_${i}`]);
+            const sectionCount = section.steps.filter((_, i) => checked[`${section.id}_${i}`]).length;
+            const isOpen = openSections[section.id];
+            const sectionObsKey = `section_${section.id}`;
+            const sectionObs = getObsForKey(sectionObsKey);
+
+            return (
+              <div key={section.id} className={`bg-white border rounded-xl overflow-hidden ${sectionDone ? "border-green-200" : "border-gray-200"}`}>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="flex-1 flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-semibold text-lg ${sectionDone ? "text-green-600 line-through" : "text-gray-900"}`}>
+                          {section.title}
+                        </h3>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${section.badgeColor}`}>
+                          {section.badge}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500">{section.subtitle}</p>
+                    </div>
+                    <span className="text-sm text-gray-400">{sectionCount}/{section.steps.length}</span>
+                    <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startObs(sectionObsKey); }}
+                    className={`mr-3 flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                      sectionObs ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500 hover:bg-amber-50 hover:text-amber-600"
+                    }`}
+                    title="Adicionar observacao ao topico"
+                  >
+                    <MessageSquarePlus className="h-3.5 w-3.5" />
+                    Obs
+                  </button>
+                </div>
+
+                {editingObs === sectionObsKey && (
+                  <div className="px-4 pb-3 border-t border-gray-100 bg-amber-50/50">
+                    <div className="flex items-center gap-2 mt-3 mb-2">
+                      <MessageSquarePlus className="h-4 w-4 text-amber-600" />
+                      <span className="text-xs font-semibold text-amber-700">Observacao: {section.title}</span>
+                    </div>
+                    <textarea
+                      value={obsText}
+                      onChange={(e) => setObsText(e.target.value)}
+                      placeholder="Descreva o que observou, problema encontrado, decisao tomada..."
+                      className="w-full border border-amber-200 rounded-lg p-3 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 resize-y min-h-[80px] bg-white"
+                      autoFocus
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => saveObs(section.id, section.title, null, section.title)}
+                        className="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors"
+                      >
+                        Salvar
+                      </button>
+                      <button
+                        onClick={() => { setEditingObs(null); setObsText(""); }}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {sectionObs && editingObs !== sectionObsKey && (
+                  <div className="mx-4 mb-2 bg-amber-50 border border-amber-100 rounded-lg p-2 flex items-start gap-2">
+                    <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-amber-800 flex-1 whitespace-pre-wrap">{sectionObs.text}</p>
+                    <button
+                      onClick={() => startObs(sectionObsKey)}
+                      className="text-amber-400 hover:text-amber-600 flex-shrink-0"
+                      title="Editar"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteObs(sectionObsKey)}
+                      className="text-amber-300 hover:text-red-500 flex-shrink-0"
+                      title="Remover"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+
+                {isOpen && (
+                  <div className="border-t border-gray-100 px-4 pb-4">
+                    {("alert" in section && section.alert) && (
+                      <div className={`flex items-start gap-2 p-3 rounded-lg mt-3 mb-2 text-sm ${
+                        section.alert.type === "danger" ? "bg-red-50 border border-red-200 text-red-800" :
+                        section.alert.type === "success" ? "bg-green-50 border border-green-200 text-green-800" :
+                        "bg-amber-50 border border-amber-200 text-amber-800"
+                      }`}>
+                        <span className="flex-shrink-0 mt-0.5">{section.alert.type === "danger" ? "⚠" : section.alert.type === "success" ? "✓" : "⚠"}</span>
+                        <p>{section.alert.text}</p>
+                      </div>
+                    )}
+                    {section.steps.map((step, i) => {
+                      const key = `${section.id}_${i}`;
+                      const isDone = checked[key];
+                      const obsKey = `step_${key}`;
+                      const stepObs = getObsForKey(obsKey);
+
+                      return (
+                        <div key={key} className="border-b border-gray-50 last:border-0">
+                          <div className={`flex items-start gap-3 py-3 ${isDone ? "opacity-50" : ""}`}>
+                            <input
+                              type="checkbox"
+                              checked={isDone || false}
+                              onChange={() => toggle(key)}
+                              className="mt-1 h-5 w-5 accent-red-600 cursor-pointer flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span className={`text-base font-medium ${isDone ? "line-through text-gray-400" : "text-gray-700"}`}>
+                                {step.label}
+                              </span>
+                              {"desc" in step && step.desc && (
+                                <pre className={`mt-1.5 text-sm leading-relaxed whitespace-pre-wrap font-sans ${isDone ? "text-gray-300" : "text-gray-500"}`}>
+                                  {step.desc}
+                                </pre>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => startObs(obsKey)}
+                              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors flex-shrink-0 ${
+                                stepObs ? "bg-amber-100 text-amber-700" : "bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-600"
+                              }`}
+                              title="Adicionar observacao"
+                            >
+                              <MessageSquarePlus className="h-3.5 w-3.5" />
+                              {stepObs ? "1" : ""}
+                            </button>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${TAG_COLORS[step.tag] || "bg-gray-100 text-gray-600"} flex-shrink-0`}>
+                              {step.tag}
+                            </span>
+                          </div>
+
+                          {editingObs === obsKey && (
+                            <div className="ml-7 mb-3 bg-amber-50/50 border border-amber-100 rounded-lg p-3">
+                              <textarea
+                                value={obsText}
+                                onChange={(e) => setObsText(e.target.value)}
+                                placeholder="Observacao sobre este item..."
+                                className="w-full border border-amber-200 rounded-lg p-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-amber-400 resize-y min-h-[60px] bg-white"
+                                autoFocus
+                              />
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  onClick={() => saveObs(section.id, section.title, i, step.label)}
+                                  className="px-3 py-1 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors"
+                                >
+                                  Salvar
+                                </button>
+                                <button
+                                  onClick={() => { setEditingObs(null); setObsText(""); }}
+                                  className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {stepObs && editingObs !== obsKey && (
+                            <div className="ml-7 mb-3 bg-amber-50 border border-amber-100 rounded-lg p-2 flex items-start gap-2">
+                              <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                              <p className="text-sm text-amber-800 flex-1 whitespace-pre-wrap">{stepObs.text}</p>
+                              <button
+                                onClick={() => startObs(obsKey)}
+                                className="text-amber-400 hover:text-amber-600 flex-shrink-0"
+                                title="Editar"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => deleteObs(obsKey)}
+                                className="text-amber-300 hover:text-red-500 flex-shrink-0"
+                                title="Remover"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
