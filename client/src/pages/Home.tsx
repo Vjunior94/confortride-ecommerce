@@ -222,7 +222,7 @@ export default function Home() {
             FICOU COM ALGUMA DUVIDA?
           </h2>
           <p className="text-zinc-400 mb-8 max-w-lg mx-auto text-base">
-            Nosso time esta pronto pra te ajudar a escolher o encosto ideal pra sua moto. Atendimento rapido e sem enrolacao.
+            Nosso time esta pronto pra te ajudar a escolher o encosto ou banco auxiliar ideal pra sua moto. Atendimento rapido e sem enrolacao.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
