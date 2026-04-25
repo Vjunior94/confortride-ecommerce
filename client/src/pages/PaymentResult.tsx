@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useSearch, Link } from "wouter";
-import { CheckCircle, Clock, XCircle, ShoppingBag, Copy, Check, QrCode, FileText, ExternalLink } from "lucide-react";
+import { CheckCircle, Clock, XCircle, ShoppingBag, Copy, Check, QrCode, FileText, ExternalLink, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 type PaymentStatus = "sucesso" | "pendente" | "falha" | "pix" | "boleto";
 
@@ -23,12 +25,38 @@ export default function PaymentResult() {
   const failDetail = searchParams.get("detail") ?? "";
 
   const [copied, setCopied] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const { permission, isSubscribed, subscribe } = usePushNotifications(isAuthenticated);
+  const [dismissed, setDismissed] = useState(false);
+
+  const showNotifBanner = isAuthenticated && !isSubscribed && permission !== "denied" && !dismissed &&
+    (status === "sucesso" || status === "pix" || status === "boleto" || status === "pendente");
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const notifBanner = showNotifBanner ? (
+    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4 text-center">
+      <Bell className="h-5 w-5 text-blue-600 mx-auto mb-2" />
+      <p className="text-sm font-medium text-gray-900 mb-1">Quer acompanhar seu pedido em tempo real?</p>
+      <p className="text-xs text-gray-500 mb-3">Ative as notificacoes e saiba quando seu pedido for confirmado, enviado e entregue.</p>
+      <div className="flex gap-2 justify-center">
+        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={subscribe}>
+          <Bell className="mr-1 h-3 w-3" /> Ativar notificacoes
+        </Button>
+        <Button size="sm" variant="ghost" className="text-xs text-gray-400" onClick={() => setDismissed(true)}>
+          Agora nao
+        </Button>
+      </div>
+    </div>
+  ) : isSubscribed && !dismissed ? (
+    <div className="bg-green-50 border border-green-100 rounded-xl p-3 mb-4 text-center">
+      <p className="text-xs text-green-700"><Check className="h-3 w-3 inline mr-1" />Notificacoes ativas — voce sera avisado sobre atualizacoes do pedido.</p>
+    </div>
+  ) : null;
 
   // ── PIX Result ──
   if (status === "pix") {
@@ -80,6 +108,8 @@ export default function PaymentResult() {
               Após o pagamento, a confirmação é automática. Você será notificado.
             </div>
 
+            {notifBanner}
+
             <div className="space-y-3">
               <Link href="/minha-conta/pedidos">
                 <Button variant="outline" className="w-full">
@@ -110,6 +140,8 @@ export default function PaymentResult() {
             {orderId && (
               <p className="text-xs text-gray-400 mb-4">Pedido <span className="font-semibold">#{orderId}</span></p>
             )}
+
+            {notifBanner}
 
             <div className="space-y-3">
               {boletoUrl && (
@@ -168,6 +200,8 @@ export default function PaymentResult() {
               Pedido <span className="font-semibold">#{orderId}</span>
             </p>
           )}
+
+          {notifBanner}
 
           <div className="space-y-3">
             {status === "falha" && orderId && (

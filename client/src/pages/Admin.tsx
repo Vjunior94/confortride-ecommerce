@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import {
   Package, ShoppingBag, Users, TrendingUp, Plus, Pencil, Trash2, ChevronDown,
   LayoutDashboard, Tag, ArrowLeft, Check, X, Search, Upload, Eye, ClipboardList,
-  MessageSquarePlus, FileText, Lightbulb,
+  MessageSquarePlus, FileText, Lightbulb, Bell,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 function formatPrice(price: string | number) {
   return Number(price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -126,10 +127,33 @@ function DashboardTab() {
   const { data: stats } = trpc.orders.stats.useQuery();
   const { data: recentOrdersData } = trpc.orders.adminList.useQuery({ limit: 5 });
   const recentOrders = recentOrdersData?.orders ?? [];
+  const { isAuthenticated } = useAuth();
+  const { permission, isSubscribed, subscribe } = usePushNotifications(isAuthenticated);
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>DASHBOARD</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>DASHBOARD</h2>
+        {permission === "granted" && isSubscribed ? (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
+            <Bell className="h-4 w-4" />
+            Notificacoes ativas
+          </div>
+        ) : permission === "denied" ? (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+            <Bell className="h-4 w-4" />
+            Notificacoes bloqueadas no navegador
+          </div>
+        ) : (
+          <button
+            onClick={subscribe}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Bell className="h-4 w-4" />
+            Ativar notificacoes
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total de Pedidos", value: stats?.total ?? 0, icon: ShoppingBag, color: "bg-blue-50 text-blue-600" },
