@@ -16,6 +16,7 @@ import Admin from "./pages/Admin";
 import MyAccount from "./pages/MyAccount";
 import Login from "./pages/Login";
 import PaymentResult from "./pages/PaymentResult";
+import EmailConfirmed from "./pages/EmailConfirmed";
 import { useEffect } from "react";
 import { supabase } from "./lib/supabase";
 import { trpc } from "./lib/trpc";
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/minha-conta" component={MyAccount} />
       <Route path="/minha-conta/pedidos" component={MyAccount} />
       <Route path="/login" component={Login} />
+      <Route path="/email-confirmado" component={EmailConfirmed} />
       <Route path="/admin" component={Admin} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

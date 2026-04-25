@@ -38,11 +38,13 @@ export const appRouter = router({
     signUp: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string().min(6), name: z.string().min(2) }))
       .mutation(async ({ input }) => {
+        const siteUrl = process.env.VITE_APP_URL || "https://www.confortride.com.br";
         const { data, error } = await supabaseAuth.auth.signUp({
           email: input.email,
           password: input.password,
           options: {
             data: { name: input.name, role: "user" },
+            emailRedirectTo: `${siteUrl}/email-confirmado`,
           },
         });
         if (error) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
